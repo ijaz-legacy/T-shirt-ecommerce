@@ -1,0 +1,229 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --color-shell: #f7f2e9;
+  --color-paper: #fffdf9;
+  --color-ink: #171512;
+  --color-smoke: #6e6659;
+  --color-line: #e6ddcc;
+  --color-rust: #c8542f;
+  --color-rust-dark: #a9401f;
+  --color-rust-soft: #f3dacc;
+  --color-gold: #e9b44c;
+  --color-moss: #59634c;
+
+  --font-sans: "DM Sans", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Noto Sans Tamil", sans-serif;
+  --font-serif: "Instrument Serif", "Noto Sans Tamil", Georgia, serif;
+  --font-tamil: "Noto Sans Tamil", sans-serif;
+
+  --shadow-soft: 0 24px 60px -34px rgba(23, 21, 18, 0.4);
+  --shadow-card: 0 16px 40px -30px rgba(23, 21, 18, 0.35);
+
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.75rem;
+  --container-content: 1240px;
+
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-pop-in: pop-in 0.2s ease-out both;
+  --animate-drawer-in: drawer-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes drawer-in {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-shell font-sans text-ink antialiased;
+  }
+
+  ::selection {
+    background: #e9b44c;
+    color: #171512;
+  }
+
+  :focus-visible {
+    outline: 2px solid #c8542f;
+    outline-offset: 3px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+
+  html[lang="ta"] .accent-serif {
+    font-family: "Noto Sans Tamil", sans-serif;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8;
+  }
+
+  .eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.2em] text-smoke sm:text-[11px];
+  }
+
+  html[lang="ta"] .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .display-title {
+    @apply font-display font-extrabold tracking-[-0.04em];
+  }
+
+  html[lang="ta"] .display-title {
+    letter-spacing: -0.015em;
+  }
+
+  .accent-serif {
+    @apply font-serif font-normal italic text-rust;
+  }
+
+  .field {
+    @apply w-full rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none transition placeholder:text-smoke/55 focus:border-ink/60 focus:ring-4 focus:ring-ink/[0.04] disabled:cursor-not-allowed disabled:bg-shell disabled:text-smoke;
+  }
+
+  .field-error {
+    @apply border-rust/70 focus:border-rust focus:ring-rust/10;
+  }
+
+  .helper {
+    @apply mt-1.5 text-xs leading-relaxed text-smoke;
+  }
+
+  .error-text {
+    @apply mt-1.5 text-xs font-medium leading-relaxed text-rust;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-medium text-ink transition;
+  }
+
+  .quiet-link {
+    @apply underline decoration-line underline-offset-4 transition hover:decoration-ink;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(rgba(23, 21, 18, 0.1) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  .accordion summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .accordion summary {
+    list-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .balance {
+    text-wrap: balance;
+  }
+}
+
+h1,
+h2,
+h3 {
+  overflow-wrap: break-word;
+}
+
+html[lang="ta"] :is(h1, h2, h3) {
+  overflow-wrap: anywhere;
+}
+
+html[lang="ta"] .display-title {
+  line-height: 1.22;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
