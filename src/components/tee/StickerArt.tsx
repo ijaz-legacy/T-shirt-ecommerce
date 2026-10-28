@@ -205,6 +205,345 @@ export function StickerArt({
           />
         </svg>
       );
+
+    case "ia_crown":
+      return (
+        <svg viewBox="0 0 80 80" aria-hidden="true" className={base}>
+          <circle cx="40" cy="40" r="37" fill="none" stroke={accent} strokeWidth="1.8" strokeDasharray="3 3" />
+          <circle cx="40" cy="40" r="33" fill="none" stroke={fg} strokeWidth="2.2" />
+          {/* Crown */}
+          <path d="M26 31 L32 20 L40 27 L48 20 L54 31 Z" fill={accent} stroke={fg} strokeWidth="1.6" strokeLinejoin="round" />
+          <circle cx="32" cy="18" r="2" fill={fg} />
+          <circle cx="40" cy="25" r="2" fill={fg} />
+          <circle cx="48" cy="18" r="2" fill={fg} />
+          {/* IA Monogram */}
+          <text x="40" y="52" textAnchor="middle" fill={fg} fontFamily="'Cinzel', 'Times New Roman', serif" fontWeight="bold" fontSize="18" letterSpacing="2">IA</text>
+          <path d="M28 58 Q40 64 52 58" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+          <text x="40" y="68" textAnchor="middle" fill={fg} fontFamily="sans-serif" fontSize="5" fontWeight="bold" letterSpacing="2">LEGACY</text>
+        </svg>
+      );
+
+    // ── Medium — Graphic Designs (Half A4 Sheet) ──────────────────────
+    case "vintage_motor":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          {/* Wings */}
+          <g fill={accent} opacity=".85">
+            <path d="M12 42 C 24 38, 36 44, 44 48 C 34 50, 22 52, 14 62 C 18 54, 24 50, 32 48 C 22 46, 16 44, 12 42 Z" />
+            <path d="M88 42 C 76 38, 64 44, 56 48 C 66 50, 78 52, 86 62 C 82 54, 76 50, 68 48 C 78 46, 84 44, 88 42 Z" />
+          </g>
+          {/* Engine / V-Twin block */}
+          <path d="M42 36 L58 36 L64 48 L58 64 L42 64 L36 48 Z" fill={fg} />
+          <rect x="44" y="40" width="12" height="4" fill={accent} />
+          <rect x="44" y="48" width="12" height="4" fill={accent} />
+          <rect x="44" y="56" width="12" height="4" fill={accent} />
+          {/* Pistons */}
+          <line x1="32" y1="28" x2="68" y2="68" stroke={fg} strokeWidth="3" strokeLinecap="round" />
+          <line x1="68" y1="28" x2="32" y2="68" stroke={fg} strokeWidth="3" strokeLinecap="round" />
+          {/* Star and Ribbon */}
+          <polygon points="50,18 53,24 60,25 55,30 56,36 50,33 44,36 45,30 40,25 47,24" fill={accent} />
+          <path d="M18 78 L50 72 L82 78 L78 86 L50 80 L22 86 Z" fill={fg} stroke={accent} strokeWidth="1.5" />
+          <text x="50" y="81" textAnchor="middle" fill="#FFFFFF" fontSize="6.5" fontWeight="900" fontFamily="sans-serif" letterSpacing="1.8">SPEED &amp; GLORY</text>
+          <text x="50" y="94" textAnchor="middle" fill={accent} fontSize="5.5" fontWeight="bold" fontFamily="sans-serif" letterSpacing="3">HERITAGE CLUB</text>
+        </svg>
+      );
+
+    case "retro_sunset":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          <defs>
+            <clipPath id="sunset-clip">
+              <circle cx="50" cy="50" r="38" />
+            </clipPath>
+          </defs>
+          <g clipPath="url(#sunset-clip)">
+            {/* Retro Sun with horizontal slices */}
+            <circle cx="50" cy="50" r="36" fill={accent} />
+            <rect x="10" y="44" width="80" height="2.5" fill="#171512" />
+            <rect x="10" y="49" width="80" height="3" fill="#171512" />
+            <rect x="10" y="55" width="80" height="4" fill="#171512" />
+            <rect x="10" y="62" width="80" height="5" fill="#171512" />
+            <rect x="10" y="70" width="80" height="6.5" fill="#171512" />
+            {/* Mountain Wireframes */}
+            <polygon points="20,70 42,48 58,62 76,46 95,70" fill={fg} opacity=".7" />
+            <polygon points="10,80 32,56 48,70 65,54 90,80" fill={fg} />
+            {/* Palms */}
+            <path d="M26 80 Q29 60 38 52" stroke="#171512" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M38 52 Q26 44 20 48 M38 52 Q28 38 24 38 M38 52 Q38 38 42 36 M38 52 Q48 42 46 48" stroke="#171512" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+            <path d="M74 80 Q71 62 62 55" stroke="#171512" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M62 55 Q74 47 80 51 M62 55 Q72 41 76 41 M62 55 Q62 41 58 39 M62 55 Q52 45 54 51" stroke="#171512" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+          </g>
+          <circle cx="50" cy="50" r="38" fill="none" stroke={fg} strokeWidth="3" />
+          <text x="50" y="96" textAnchor="middle" fill={fg} fontSize="7" fontWeight="900" fontFamily="sans-serif" letterSpacing="4">NEON 1984</text>
+        </svg>
+      );
+
+    case "tokyo_drift":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          {/* Japanese Kanji Background Badge */}
+          <rect x="22" y="12" width="56" height="76" rx="4" fill="none" stroke={fg} strokeWidth="2.5" />
+          <line x1="16" y1="28" x2="84" y2="28" stroke={accent} strokeWidth="2" />
+          {/* Kanji: 速度 (Speed) */}
+          <text x="50" y="44" textAnchor="middle" fill={fg} fontSize="22" fontWeight="900" fontFamily="'Noto Sans JP', sans-serif">速度</text>
+          {/* Drift Sports Car Silhouetted Front */}
+          <path d="M30 68 L36 56 L64 56 L70 68 L68 74 L32 74 Z" fill={accent} stroke={fg} strokeWidth="1.8" />
+          <ellipse cx="40" cy="65" rx="3" ry="1.5" fill="#fff" />
+          <ellipse cx="60" cy="65" rx="3" ry="1.5" fill="#fff" />
+          {/* Speed Lines */}
+          <line x1="10" y1="58" x2="26" y2="58" stroke={fg} strokeWidth="2" strokeLinecap="round" />
+          <line x1="8" y1="64" x2="28" y2="64" stroke={fg} strokeWidth="2" strokeLinecap="round" />
+          <line x1="74" y1="58" x2="90" y2="58" stroke={fg} strokeWidth="2" strokeLinecap="round" />
+          <line x1="72" y1="64" x2="92" y2="64" stroke={fg} strokeWidth="2" strokeLinecap="round" />
+          {/* Subtext */}
+          <text x="50" y="24" textAnchor="middle" fill={accent} fontSize="5.5" fontWeight="900" letterSpacing="3">TOKYO DRIFT</text>
+          <text x="50" y="82" textAnchor="middle" fill={fg} fontSize="4.8" fontWeight="bold" letterSpacing="2">UNDERGROUND RACING</text>
+        </svg>
+      );
+
+    case "botanical_wild":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          {/* Crescent Leaf Wreath */}
+          <path d="M50 14 C 28 14, 16 32, 16 54 C 16 74, 32 86, 50 86 C 68 86, 84 74, 84 54" fill="none" stroke={fg} strokeWidth="2.2" strokeLinecap="round" />
+          {/* Leaves along wreath */}
+          <g fill={fg}>
+            <ellipse cx="22" cy="30" rx="3" ry="6" transform="rotate(-30 22 30)" />
+            <ellipse cx="16" cy="45" rx="3" ry="6" transform="rotate(-10 16 45)" />
+            <ellipse cx="18" cy="62" rx="3" ry="6" transform="rotate(25 18 62)" />
+            <ellipse cx="28" cy="76" rx="3" ry="6" transform="rotate(50 28 76)" />
+            <ellipse cx="42" cy="84" rx="3" ry="6" transform="rotate(75 42 84)" />
+            <ellipse cx="60" cy="84" rx="3" ry="6" transform="rotate(-75 60 84)" />
+            <ellipse cx="74" cy="76" rx="3" ry="6" transform="rotate(-50 74 76)" />
+            <ellipse cx="82" cy="62" rx="3" ry="6" transform="rotate(-25 82 62)" />
+          </g>
+          {/* Blooming Wild Rose */}
+          <circle cx="50" cy="46" r="14" fill={accent} opacity=".9" />
+          <path d="M50 36 C 45 42, 45 50, 50 56 C 55 50, 55 42, 50 36 Z" fill="#fff" opacity=".3" />
+          <path d="M40 46 C 46 41, 54 41, 60 46 C 54 51, 46 51, 40 46 Z" fill="#fff" opacity=".3" />
+          <circle cx="50" cy="46" r="4.5" fill={fg} />
+          {/* Celestial Moon & Stars */}
+          <path d="M50 16 C 54 20, 54 26, 50 30 C 47 26, 47 20, 50 16 Z" fill={accent} />
+          <polygon points="50,6 51,9 54,10 51,11 50,14 49,11 46,10 49,9" fill={accent} />
+          <text x="50" y="68" textAnchor="middle" fill={fg} fontSize="6" fontWeight="bold" fontFamily="serif" letterSpacing="3">FLORA &amp; FAUNA</text>
+        </svg>
+      );
+
+    case "skull_rose":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          {/* Roses Behind */}
+          <g fill={accent}>
+            <circle cx="30" cy="30" r="14" />
+            <circle cx="70" cy="30" r="14" />
+          </g>
+          {/* Skull Outline */}
+          <path d="M34 32 C 34 20, 66 20, 66 32 C 66 40, 62 44, 62 52 L58 54 L58 64 L42 64 L42 54 L38 52 C 38 44, 34 40, 34 32 Z" fill={fg} stroke="#171512" strokeWidth="2" />
+          {/* Eyes & Nose */}
+          <circle cx="43" cy="36" r="5" fill="#171512" />
+          <circle cx="57" cy="36" r="5" fill="#171512" />
+          <polygon points="50,44 47,50 53,50" fill="#171512" />
+          {/* Teeth */}
+          <line x1="46" y1="56" x2="46" y2="62" stroke="#171512" strokeWidth="1.8" />
+          <line x1="50" y1="56" x2="50" y2="62" stroke="#171512" strokeWidth="1.8" />
+          <line x1="54" y1="56" x2="54" y2="62" stroke="#171512" strokeWidth="1.8" />
+          {/* Bandana */}
+          <path d="M34 26 Q50 32 66 26 L64 20 Q50 25 36 20 Z" fill={accent} />
+          {/* Dagger / Crossbones */}
+          <path d="M26 72 Q50 66 74 72 Q50 78 26 72 Z" fill={accent} />
+          <text x="50" y="86" textAnchor="middle" fill={fg} fontSize="6" fontWeight="900" fontFamily="sans-serif" letterSpacing="3">STAY WILD</text>
+        </svg>
+      );
+
+    case "cosmic_voyage":
+      return (
+        <svg viewBox="0 0 100 100" aria-hidden="true" className={base}>
+          {/* Planetary Ring */}
+          <ellipse cx="50" cy="50" rx="44" ry="14" fill="none" stroke={accent} strokeWidth="3" transform="rotate(-25 50 50)" />
+          {/* Helmet Body */}
+          <circle cx="50" cy="50" r="26" fill={fg} stroke="#171512" strokeWidth="2.5" />
+          {/* Visor */}
+          <path d="M34 42 C 34 34, 66 34, 66 42 C 66 58, 62 62, 50 62 C 38 62, 34 58, 34 42 Z" fill={accent} />
+          <path d="M38 40 C 44 38, 54 38, 60 42 C 54 44, 44 44, 38 40 Z" fill="#fff" opacity=".6" />
+          {/* Helmet Collar / Pack */}
+          <rect x="38" y="72" width="24" height="8" rx="3" fill={fg} />
+          {/* Geometric Stars & Orbitals */}
+          <circle cx="22" cy="24" r="2" fill={accent} />
+          <circle cx="78" cy="26" r="3" fill={accent} />
+          <polygon points="50,10 52,15 57,17 52,19 50,24 48,19 43,17 48,15" fill={accent} />
+          <text x="50" y="93" textAnchor="middle" fill={fg} fontSize="6" fontWeight="bold" fontFamily="monospace" letterSpacing="3">INFINITY VOYAGER</text>
+        </svg>
+      );
+
+    // ── Large — Full A4 Sheet (Anime & Trending Characters) ────────────
+    case "anime_warrior":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Energy Burst Rays */}
+          <g stroke={accent} strokeWidth="1.6" opacity=".7">
+            <line x1="60" y1="8" x2="60" y2="20" />
+            <line x1="60" y1="100" x2="60" y2="112" />
+            <line x1="8" y1="60" x2="20" y2="60" />
+            <line x1="100" y1="60" x2="112" y2="60" />
+            <line x1="22" y1="22" x2="32" y2="32" />
+            <line x1="88" y1="88" x2="98" y2="98" />
+            <line x1="22" y1="98" x2="32" y2="88" />
+            <line x1="88" y1="22" x2="98" y2="32" />
+          </g>
+          {/* Dual Katana Swords */}
+          <line x1="16" y1="104" x2="104" y2="16" stroke={fg} strokeWidth="3.5" strokeLinecap="round" />
+          <line x1="104" y1="104" x2="16" y2="16" stroke={fg} strokeWidth="3.5" strokeLinecap="round" />
+          <rect x="54" y="54" width="12" height="12" fill={accent} transform="rotate(45 60 60)" />
+          {/* Anime Spiky Hair */}
+          <polygon points="60,16 68,36 84,24 82,42 98,38 88,54 94,66 78,64 74,80 60,70 46,80 42,64 26,66 32,54 22,38 38,42 36,24 52,36" fill={fg} />
+          {/* Anime Headband & Face */}
+          <rect x="42" y="44" width="36" height="8" rx="2" fill={accent} stroke={fg} strokeWidth="1.5" />
+          <circle cx="60" cy="48" r="2.5" fill="#fff" />
+          {/* Eyes (Sharp anime gaze) */}
+          <polygon points="46,56 54,58 52,60 46,58" fill="#fff" />
+          <polygon points="74,56 66,58 68,60 74,58" fill="#fff" />
+          <circle cx="50" cy="58" r="1.5" fill={accent} />
+          <circle cx="70" cy="58" r="1.5" fill={accent} />
+          {/* Face mask / collar */}
+          <polygon points="44,66 60,82 76,66 60,72" fill={accent} stroke={fg} strokeWidth="1.5" />
+          <text x="60" y="104" textAnchor="middle" fill={fg} fontSize="8" fontWeight="900" fontFamily="'Impact', sans-serif" letterSpacing="4">SHINOBI AURA</text>
+        </svg>
+      );
+
+    case "cyber_samurai":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Cyberpunk Oni Horns */}
+          <path d="M38 44 C 28 20, 20 12, 16 10 C 22 22, 30 36, 36 48 Z" fill={accent} stroke={fg} strokeWidth="1.5" />
+          <path d="M82 44 C 92 20, 100 12, 104 10 C 98 22, 90 36, 84 48 Z" fill={accent} stroke={fg} strokeWidth="1.5" />
+          {/* Helmet Crest (Kabuto) */}
+          <path d="M32 46 L60 28 L88 46 L82 56 L60 48 L38 56 Z" fill={fg} stroke={accent} strokeWidth="2" />
+          {/* Cyber Visor */}
+          <rect x="36" y="52" width="48" height="12" rx="3" fill={accent} stroke={fg} strokeWidth="2" />
+          <line x1="40" y1="58" x2="80" y2="58" stroke="#FFFFFF" strokeWidth="2" strokeDasharray="6 3" />
+          {/* Oni Jaw & Fangs */}
+          <path d="M38 68 L60 92 L82 68 L78 84 L60 96 L42 84 Z" fill={fg} stroke={accent} strokeWidth="1.5" />
+          <polygon points="48,72 52,80 50,72" fill="#FFFFFF" />
+          <polygon points="72,72 68,80 70,72" fill="#FFFFFF" />
+          {/* Cyber Circuits */}
+          <path d="M22 68 L34 68 L38 76" stroke={accent} strokeWidth="2" fill="none" />
+          <path d="M98 68 L86 68 L82 76" stroke={accent} strokeWidth="2" fill="none" />
+          <circle cx="22" cy="68" r="2.5" fill={accent} />
+          <circle cx="98" cy="68" r="2.5" fill={accent} />
+          <text x="60" y="112" textAnchor="middle" fill={fg} fontSize="8" fontWeight="900" fontFamily="sans-serif" letterSpacing="4">CYBER ONI 2077</text>
+        </svg>
+      );
+
+    case "demon_slayer_fox":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Fox Spirit Ears */}
+          <polygon points="34,48 24,18 50,34" fill={fg} stroke={accent} strokeWidth="2" />
+          <polygon points="86,48 96,18 70,34" fill={fg} stroke={accent} strokeWidth="2" />
+          <polygon points="34,42 28,24 46,34" fill={accent} />
+          <polygon points="86,42 92,24 74,34" fill={accent} />
+          {/* Mask Main Face */}
+          <path d="M30 50 C 30 36, 90 36, 90 50 C 90 70, 78 88, 60 94 C 42 88, 30 70, 30 50 Z" fill="#FAFAF9" stroke={fg} strokeWidth="2.5" />
+          {/* Red Flame Markings on Eyes */}
+          <path d="M38 52 C 44 46, 52 46, 56 50 C 50 54, 44 54, 38 52 Z" fill={accent} />
+          <path d="M82 52 C 76 46, 68 46, 64 50 C 70 54, 76 54, 82 52 Z" fill={accent} />
+          {/* Mask Eyes Slits */}
+          <ellipse cx="48" cy="51" rx="6" ry="1.8" fill={fg} />
+          <ellipse cx="72" cy="51" rx="6" ry="1.8" fill={fg} />
+          {/* Nose & Whiskers */}
+          <polygon points="60,68 57,65 63,65" fill={accent} />
+          <line x1="36" y1="64" x2="22" y2="60" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+          <line x1="36" y1="70" x2="20" y2="72" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+          <line x1="84" y1="64" x2="98" y2="60" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+          <line x1="84" y1="70" x2="100" y2="72" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+          {/* Cherry Blossom Flowers */}
+          <circle cx="60" cy="36" r="4.5" fill={accent} />
+          <circle cx="60" cy="36" r="2" fill="#fff" />
+          <text x="60" y="110" textAnchor="middle" fill={fg} fontSize="8" fontWeight="bold" fontFamily="serif" letterSpacing="4">KITSUNE SPIRIT</text>
+        </svg>
+      );
+
+    case "dragon_titan":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Serpentine Dragon Body S-Curve */}
+          <path d="M60 16 C 90 16, 105 35, 88 54 C 68 70, 40 50, 32 72 C 22 92, 50 102, 70 96 C 88 90, 94 74, 88 68" fill="none" stroke={fg} strokeWidth="8" strokeLinecap="round" />
+          <path d="M60 16 C 90 16, 105 35, 88 54 C 68 70, 40 50, 32 72 C 22 92, 50 102, 70 96 C 88 90, 94 74, 88 68" fill="none" stroke={accent} strokeWidth="3" strokeDasharray="4 4" />
+          {/* Dragon Head */}
+          <path d="M52 14 L68 12 L74 22 L66 26 L56 22 Z" fill={fg} stroke={accent} strokeWidth="1.5" />
+          {/* Dragon Horns & Whiskers */}
+          <path d="M52 14 Q40 6 34 8" stroke={accent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M68 12 Q80 4 86 6" stroke={accent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M72 24 Q86 28 94 24" stroke={fg} strokeWidth="1.8" fill="none" />
+          <circle cx="64" cy="18" r="2" fill={accent} />
+          {/* Flaming Pearl / Celestial Sphere */}
+          <circle cx="60" cy="62" r="10" fill={accent} />
+          <circle cx="60" cy="62" r="6" fill="#fff" opacity=".8" />
+          {/* Claws */}
+          <path d="M38 72 L30 68 M38 74 L28 75 M38 76 L32 82" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
+          <text x="60" y="114" textAnchor="middle" fill={fg} fontSize="8" fontWeight="900" fontFamily="sans-serif" letterSpacing="5">RYŪ TITAN</text>
+        </svg>
+      );
+
+    case "manga_eyes":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Speed Lines Background */}
+          <g stroke={fg} strokeWidth="1.4" opacity=".6">
+            <line x1="4" y1="20" x2="30" y2="40" />
+            <line x1="6" y1="60" x2="28" y2="60" />
+            <line x1="4" y1="100" x2="30" y2="80" />
+            <line x1="116" y1="20" x2="90" y2="40" />
+            <line x1="114" y1="60" x2="92" y2="60" />
+            <line x1="116" y1="100" x2="90" y2="80" />
+          </g>
+          {/* Eye Frames Banner */}
+          <rect x="14" y="38" width="92" height="44" fill="#09090B" rx="3" stroke={fg} strokeWidth="2.5" />
+          {/* Left Eye */}
+          <path d="M22 56 Q36 46 52 56 Q36 64 22 56 Z" fill="#FFFFFF" />
+          <circle cx="38" cy="56" r="7.5" fill={accent} />
+          <circle cx="38" cy="56" r="4" fill="#000" />
+          <circle cx="35" cy="53" r="2.2" fill="#fff" />
+          <path d="M20 48 Q36 40 54 50" stroke={fg} strokeWidth="3" fill="none" strokeLinecap="round" />
+          {/* Right Eye */}
+          <path d="M68 56 Q84 46 98 56 Q84 64 68 56 Z" fill="#FFFFFF" />
+          <circle cx="82" cy="56" r="7.5" fill={accent} />
+          <circle cx="82" cy="56" r="4" fill="#000" />
+          <circle cx="79" cy="53" r="2.2" fill="#fff" />
+          <path d="M66 50 Q84 40 100 48" stroke={fg} strokeWidth="3" fill="none" strokeLinecap="round" />
+          {/* Manga Katakana Sound Effect: ゴゴゴ (Menacing rumble) */}
+          <text x="60" y="32" textAnchor="middle" fill={accent} fontSize="14" fontWeight="900" fontFamily="'Noto Sans JP', sans-serif" letterSpacing="4">ゴゴゴ</text>
+          <text x="60" y="104" textAnchor="middle" fill={fg} fontSize="8" fontWeight="900" fontFamily="sans-serif" letterSpacing="4">AWAKENED</text>
+        </svg>
+      );
+
+    case "phoenix_rebirth":
+      return (
+        <svg viewBox="0 0 120 120" aria-hidden="true" className={base}>
+          {/* Radiating Fire Wings */}
+          <g fill={accent} stroke={fg} strokeWidth="1.2">
+            {/* Left Wing Feathers */}
+            <path d="M60 52 C 44 26, 20 22, 10 28 C 18 40, 32 50, 48 58 Z" />
+            <path d="M60 58 C 42 38, 22 36, 12 44 C 20 54, 34 62, 50 66 Z" />
+            <path d="M60 64 C 44 48, 26 48, 16 58 C 26 66, 38 72, 54 74 Z" />
+            {/* Right Wing Feathers */}
+            <path d="M60 52 C 76 26, 100 22, 110 28 C 102 40, 88 50, 72 58 Z" />
+            <path d="M60 58 C 78 38, 98 36, 108 44 C 100 54, 86 62, 70 66 Z" />
+            <path d="M60 64 C 76 48, 94 48, 104 58 C 94 66, 82 72, 66 74 Z" />
+          </g>
+          {/* Phoenix Body & Crest */}
+          <path d="M60 36 C 56 46, 54 62, 60 78 C 66 62, 64 46, 60 36 Z" fill={fg} />
+          {/* Head & Crown */}
+          <circle cx="60" cy="30" r="5" fill={fg} />
+          <polygon points="60,25 57,18 63,18" fill={accent} />
+          <polygon points="60,22 54,14 60,18 66,14" fill={accent} />
+          {/* Tail Plumes */}
+          <path d="M60 78 Q50 96 42 108" stroke={accent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M60 78 Q60 98 60 110" stroke={fg} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M60 78 Q70 96 78 108" stroke={accent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <text x="60" y="118" textAnchor="middle" fill={fg} fontSize="7.5" fontWeight="900" fontFamily="serif" letterSpacing="4">ETERNAL PHOENIX</text>
+        </svg>
+      );
     default:
       return null;
   }

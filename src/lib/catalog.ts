@@ -74,6 +74,7 @@ export const TEE_COLOR_MAP: Record<TeeColorId, TeeColor> = Object.fromEntries(
 ) as Record<TeeColorId, TeeColor>;
 
 export const STICKER_IDS = [
+  // Small — Logos & Icons
   "sun",
   "wave",
   "peak",
@@ -86,6 +87,21 @@ export const STICKER_IDS = [
   "eye",
   "smile",
   "star",
+  "ia_crown",
+  // Medium — Graphic Designs (Half A4 Sheet)
+  "vintage_motor",
+  "retro_sunset",
+  "tokyo_drift",
+  "botanical_wild",
+  "skull_rose",
+  "cosmic_voyage",
+  // Large — Full A4 Sheet (Anime & Trending Characters)
+  "anime_warrior",
+  "cyber_samurai",
+  "demon_slayer_fox",
+  "dragon_titan",
+  "manga_eyes",
+  "phoenix_rebirth",
 ] as const;
 export type StickerId = (typeof STICKER_IDS)[number];
 
@@ -96,21 +112,40 @@ export interface Sticker {
   bg: string;
   fg: string;
   accent: string;
+  category: StickerCategory;
 }
 
 export const STICKERS: Sticker[] = [
-  { id: "sun", nameEn: "Sunrise", nameTa: "உதயம்", bg: "#F4C95D", fg: "#B8441F", accent: "#8F2F12" },
-  { id: "wave", nameEn: "Waves", nameTa: "அலைகள்", bg: "#29465B", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "peak", nameEn: "Peaks", nameTa: "சிகரம்", bg: "#4E5A41", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "palm", nameEn: "Palmyra", nameTa: "பனை", bg: "#EAD8B7", fg: "#3F513E", accent: "#B8441F" },
-  { id: "tape", nameEn: "Mixtape", nameTa: "கேசட்", bg: "#C8542F", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "bolt", nameEn: "Voltage", nameTa: "மின்னல்", bg: "#F7F2E9", fg: "#C8542F", accent: "#171512" },
-  { id: "moon", nameEn: "Moonlight", nameTa: "நிலவு", bg: "#1C1B19", fg: "#E9B44C", accent: "#F7F2E9" },
-  { id: "bloom", nameEn: "Bloom", nameTa: "பூக்கும்", bg: "#F0CBD2", fg: "#6C2E38", accent: "#E9B44C" },
-  { id: "heart", nameEn: "Whole Heart", nameTa: "முழு இதயம்", bg: "#C8542F", fg: "#F7F2E9", accent: "#F0CBD2" },
-  { id: "eye", nameEn: "Mystic Eye", nameTa: "மாயக் கண்", bg: "#EAD8B7", fg: "#26374F", accent: "#C8542F" },
-  { id: "smile", nameEn: "Good Vibes", nameTa: "நல்ல உணர்வு", bg: "#E9B44C", fg: "#171512", accent: "#F7F2E9" },
-  { id: "star", nameEn: "Star", nameTa: "நட்சத்திரம்", bg: "#26374F", fg: "#E9B44C", accent: "#C8542F" },
+  // ── Small — Logos & Icons ──────────────────────────────────────────
+  { id: "sun", nameEn: "Sunrise", nameTa: "உதயம்", bg: "#F4C95D", fg: "#B8441F", accent: "#8F2F12", category: "small" },
+  { id: "wave", nameEn: "Waves", nameTa: "அலைகள்", bg: "#29465B", fg: "#F7F2E9", accent: "#E9B44C", category: "small" },
+  { id: "peak", nameEn: "Peaks", nameTa: "சிகரம்", bg: "#4E5A41", fg: "#F7F2E9", accent: "#E9B44C", category: "small" },
+  { id: "palm", nameEn: "Palmyra", nameTa: "பனை", bg: "#EAD8B7", fg: "#3F513E", accent: "#B8441F", category: "small" },
+  { id: "tape", nameEn: "Mixtape", nameTa: "கேசட்", bg: "#C8542F", fg: "#F7F2E9", accent: "#E9B44C", category: "small" },
+  { id: "bolt", nameEn: "Voltage", nameTa: "மின்னல்", bg: "#F7F2E9", fg: "#C8542F", accent: "#171512", category: "small" },
+  { id: "moon", nameEn: "Moonlight", nameTa: "நிலவு", bg: "#1C1B19", fg: "#E9B44C", accent: "#F7F2E9", category: "small" },
+  { id: "bloom", nameEn: "Bloom", nameTa: "பூக்கும்", bg: "#F0CBD2", fg: "#6C2E38", accent: "#E9B44C", category: "small" },
+  { id: "heart", nameEn: "Whole Heart", nameTa: "முழு இதயம்", bg: "#C8542F", fg: "#F7F2E9", accent: "#F0CBD2", category: "small" },
+  { id: "eye", nameEn: "Mystic Eye", nameTa: "மாயக் கண்", bg: "#EAD8B7", fg: "#26374F", accent: "#C8542F", category: "small" },
+  { id: "smile", nameEn: "Good Vibes", nameTa: "நல்ல உணர்வு", bg: "#E9B44C", fg: "#171512", accent: "#F7F2E9", category: "small" },
+  { id: "star", nameEn: "Star", nameTa: "நட்சத்திரம்", bg: "#26374F", fg: "#E9B44C", accent: "#C8542F", category: "small" },
+  { id: "ia_crown", nameEn: "Legacy Crown", nameTa: "மரபு கிரீடம்", bg: "#1C1B19", fg: "#E9B44C", accent: "#D8C2A4", category: "small" },
+
+  // ── Medium — Graphic Designs (Half A4 Sheet) ────────────────────────
+  { id: "vintage_motor", nameEn: "Heritage Speed Club", nameTa: "பாரம்பரிய பந்தயம்", bg: "#1E293B", fg: "#F8FAFC", accent: "#F59E0B", category: "medium" },
+  { id: "retro_sunset", nameEn: "Neon Horizon 80s", nameTa: "நியோன் தொடுவானம்", bg: "#312E81", fg: "#F43F5E", accent: "#FDE047", category: "medium" },
+  { id: "tokyo_drift", nameEn: "Neo Tokyo Street", nameTa: "டோக்கியோ தெரு", bg: "#09090B", fg: "#EF4444", accent: "#FAFAFA", category: "medium" },
+  { id: "botanical_wild", nameEn: "Wild Botanical Crest", nameTa: "காட்டு தாவரவியல்", bg: "#14532D", fg: "#F0FDF4", accent: "#86EFAC", category: "medium" },
+  { id: "skull_rose", nameEn: "Thorn & Rose Flash", nameTa: "முள் மற்றும் ரோஜா", bg: "#18181B", fg: "#F43F5E", accent: "#E4E4E7", category: "medium" },
+  { id: "cosmic_voyage", nameEn: "Cosmic Odyssey", nameTa: "விண்வெளி பயணம்", bg: "#0F172A", fg: "#38BDF8", accent: "#A855F7", category: "medium" },
+
+  // ── Large — Full A4 Sheet (Anime & Trending Characters) ──────────────
+  { id: "anime_warrior", nameEn: "Shadow Shinobi", nameTa: "நிழல் நிஞ்ஜா", bg: "#111827", fg: "#38BDF8", accent: "#F43F5E", category: "large" },
+  { id: "cyber_samurai", nameEn: "Cyber Oni Samurai", nameTa: "சைபர் சாமுராய்", bg: "#09090B", fg: "#EF4444", accent: "#06B6D4", category: "large" },
+  { id: "demon_slayer_fox", nameEn: "Kitsune Spirit Mask", nameTa: "கிட்சுனே நரி முகமூடி", bg: "#1C1917", fg: "#FAFAF9", accent: "#DC2626", category: "large" },
+  { id: "dragon_titan", nameEn: "Ryū Celestial Titan", nameTa: "விண்வெளி டிராகன்", bg: "#022C22", fg: "#34D399", accent: "#FBBF24", category: "large" },
+  { id: "manga_eyes", nameEn: "Awakened Manga Eyes", nameTa: "விழித்த மங்கா கண்கள்", bg: "#18181B", fg: "#FFFFFF", accent: "#E11D48", category: "large" },
+  { id: "phoenix_rebirth", nameEn: "Eternal Phoenix", nameTa: "நித்திய பீனிக்ஸ்", bg: "#450A0A", fg: "#FB923C", accent: "#FEF08A", category: "large" },
 ];
 
 export const STICKER_MAP: Record<StickerId, Sticker> = Object.fromEntries(
