@@ -1,26 +1,14 @@
 "use client";
 
 /**
- * ImageEditor — full in-browser image editor
- *
- * Flow:
- *   1. Mount  → immediately start background removal (auto, no click needed)
- *   2. While removing → show progress with animated preview of original
- *   3. Done  → show transparent PNG result live on canvas
- *   4. Customer can then:
- *        • Keep transparent OR add a background colour + shape
- *        • Flip / mirror the image horizontally
- *        • Adjust brightness / contrast / saturation / opacity
- *        • Crop to a square (centred)
- *   5. "Place on tee" → exports PNG blob → size-category prompt → upload → tee canvas
- *
- * All processing runs in the browser via:
- *   • @imgly/background-removal  (WASM, ~40 MB model, no API key)
- *   • HTML Canvas 2D API
- *   • CSS filters
+ * ImageEditor — full in-browser image editor with 3 logo/design extraction methods:
+ *   1. Auto AI background removal (@imgly/background-removal WASM)
+ *   2. Crop First (draw a box around the logo -> extract)
+ *   3. Color Removal / Tap-to-select (flood fill contiguous or global color keying)
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   Check,
   ChevronDown,
@@ -29,10 +17,13 @@ import {
   Crop,
   FlipHorizontal,
   Loader2,
+  Pipette,
   RefreshCcw,
   Sliders,
+  Sparkles,
   Square,
-  Trash2,
+  Undo2,
+  Wand2,
   X,
 } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
@@ -40,12 +31,13 @@ import { cn } from "@/lib/cn";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type BgShape = "transparent" | "circle" | "rounded" | "square";
+type ActiveTool = "adjust" | "crop" | "color-erase";
 
 interface Adjustments {
-  brightness: number;  // 50–150  (100 = neutral)
-  contrast: number;    // 50–150
-  saturation: number;  // 0–200
-  opacity: number;     // 10–100
+  brightness: number; // 50–150 (100 = neutral)
+  contrast: number;   // 50–150
+  saturation: number; // 0–200
+  opacity: number;    // 10–100
 }
 
 const DEFAULT_ADJ: Adjustments = {
@@ -64,7 +56,6 @@ const PRESET_BG_COLORS = [
 
 // ── Canvas helpers ─────────────────────────────────────────────────────────────
 
-/** Build a CSS filter string from adjustments */
 function toFilter(adj: Adjustments): string {
   return (
     `brightness(${adj.brightness}%) ` +
@@ -73,7 +64,104 @@ function toFilter(adj: Adjustments): string {
   );
 }
 
-/** Clip path helper — applies shape clipping to a 2D context */
+function colorDist(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) {
+  const dr = r1 - r2;
+  const dg = g1 - g2;
+  const db = b1 - b2;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function floodFillErase(
+  imageData: ImageData,
+  startX: number,
+  startY: number,
+  tolerance: number,
+) {
+  const { width, height, data } = imageData;
+  if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+
+  const startIdx = (startY * width + startX) * 4;
+  const targetR = data[startIdx];
+  const targetG = data[startIdx + 1];
+  const targetB = data[startIdx + 2];
+  const targetA = data[startIdx + 3];
+
+  if (targetA === 0) return; // already transparent
+
+  const maxDist = (tolerance / 100) * 442;
+  const visited = new Uint8Array(width * height);
+  const queue: number[] = [startX + startY * width];
+  visited[startX + startY * width] = 1;
+
+  while (queue.length > 0) {
+    const idx = queue.pop()!;
+    const px = idx % width;
+    const py = Math.floor(idx / width);
+    const pIdx = idx * 4;
+
+    data[pIdx + 3] = 0;
+
+    if (px > 0) {
+      const n = idx - 1;
+      if (!visited[n]) {
+        visited[n] = 1;
+        const np = n * 4;
+        if (data[np + 3] > 0 && colorDist(targetR, targetG, targetB, data[np], data[np + 1], data[np + 2]) <= maxDist) {
+          queue.push(n);
+        }
+      }
+    }
+    if (px < width - 1) {
+      const n = idx + 1;
+      if (!visited[n]) {
+        visited[n] = 1;
+        const np = n * 4;
+        if (data[np + 3] > 0 && colorDist(targetR, targetG, targetB, data[np], data[np + 1], data[np + 2]) <= maxDist) {
+          queue.push(n);
+        }
+      }
+    }
+    if (py > 0) {
+      const n = idx - width;
+      if (!visited[n]) {
+        visited[n] = 1;
+        const np = n * 4;
+        if (data[np + 3] > 0 && colorDist(targetR, targetG, targetB, data[np], data[np + 1], data[np + 2]) <= maxDist) {
+          queue.push(n);
+        }
+      }
+    }
+    if (py < height - 1) {
+      const n = idx + width;
+      if (!visited[n]) {
+        visited[n] = 1;
+        const np = n * 4;
+        if (data[np + 3] > 0 && colorDist(targetR, targetG, targetB, data[np], data[np + 1], data[np + 2]) <= maxDist) {
+          queue.push(n);
+        }
+      }
+    }
+  }
+}
+
+function globalColorErase(
+  imageData: ImageData,
+  targetR: number,
+  targetG: number,
+  targetB: number,
+  tolerance: number,
+) {
+  const { data } = imageData;
+  const maxDist = (tolerance / 100) * 442;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    const dist = colorDist(targetR, targetG, targetB, data[i], data[i + 1], data[i + 2]);
+    if (dist <= maxDist) {
+      data[i + 3] = 0;
+    }
+  }
+}
+
 function clipShape(ctx: CanvasRenderingContext2D, size: number, shape: BgShape) {
   if (shape === "circle") {
     ctx.beginPath();
@@ -96,7 +184,6 @@ function clipShape(ctx: CanvasRenderingContext2D, size: number, shape: BgShape) 
   }
 }
 
-/** Fill background shape */
 function fillShape(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -128,7 +215,6 @@ function fillShape(
   }
 }
 
-/** Draw checkerboard (transparency indicator) */
 function drawCheckerboard(ctx: CanvasRenderingContext2D, size: number) {
   const sq = 10;
   for (let y = 0; y < size; y += sq) {
@@ -140,10 +226,6 @@ function drawCheckerboard(ctx: CanvasRenderingContext2D, size: number) {
   }
 }
 
-/**
- * Composite the working image (source: ImageBitmap) with all settings applied
- * onto the given canvas. Returns nothing — draws in place.
- */
 function composite(
   canvas: HTMLCanvasElement,
   source: ImageBitmap,
@@ -160,13 +242,9 @@ function composite(
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, SIZE, SIZE);
 
-  // 1. Checkerboard (shows through transparent areas)
   drawCheckerboard(ctx, SIZE);
-
-  // 2. Background shape fill
   fillShape(ctx, SIZE, bgShape, bgColor);
 
-  // 3. Draw image with filter + flip + optional crop
   ctx.save();
   if (bgShape !== "square" && bgShape !== "transparent") {
     clipShape(ctx, SIZE, bgShape);
@@ -180,7 +258,6 @@ function composite(
 
   let sx = 0, sy = 0, sw = srcW, sh = srcH;
   if (cropped) {
-    // Centre-crop to square
     if (srcW > srcH) {
       sx = (srcW - srcH) / 2;
       sw = srcH;
@@ -190,19 +267,22 @@ function composite(
     }
   }
 
+  // Preserve aspect ratio inside SIZE x SIZE
+  const scale = Math.min(SIZE / sw, SIZE / sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  const dx = (SIZE - dw) / 2;
+  const dy = (SIZE - dh) / 2;
+
   if (flipped) {
     ctx.translate(SIZE, 0);
     ctx.scale(-1, 1);
   }
 
-  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, SIZE, SIZE);
+  ctx.drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();
 }
 
-/**
- * Export the final image as a PNG Blob at full quality (800px).
- * Does NOT draw the checkerboard — clean output only.
- */
 async function exportBlob(
   source: ImageBitmap,
   opts: {
@@ -230,6 +310,12 @@ async function exportBlob(
     else { sy = (srcH - srcW) / 2; sh = srcW; }
   }
 
+  const scale = Math.min(SIZE / sw, SIZE / sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  const dx = (SIZE - dw) / 2;
+  const dy = (SIZE - dh) / 2;
+
   ctx.save();
   if (bgShape !== "square" && bgShape !== "transparent") {
     clipShape(ctx, SIZE, bgShape);
@@ -237,7 +323,7 @@ async function exportBlob(
   ctx.globalAlpha = adj.opacity / 100;
   ctx.filter = toFilter(adj);
   if (flipped) { ctx.translate(SIZE, 0); ctx.scale(-1, 1); }
-  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, SIZE, SIZE);
+  ctx.drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();
 
   return new Promise<Blob>((res, rej) => {
@@ -248,10 +334,10 @@ async function exportBlob(
 // ── Component ──────────────────────────────────────────────────────────────────
 
 type EditorPhase =
-  | "loading"       // loading original file
-  | "removing-bg"   // WASM model running
-  | "ready"         // editing
-  | "bg-error";     // removal failed, still editable with original
+  | "loading"
+  | "removing-bg"
+  | "ready"
+  | "bg-error";
 
 export function ImageEditor({
   file,
@@ -262,32 +348,48 @@ export function ImageEditor({
   onSave: (blob: Blob, fileName: string) => void;
   onCancel: () => void;
 }) {
-  // ── State ────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<EditorPhase>("loading");
   const [bgError, setBgError] = useState<string | null>(null);
 
-  // The working ImageBitmap (original or bg-removed)
+  // Original pristine ImageBitmap
+  const [originalBitmap, setOriginalBitmap] = useState<ImageBitmap | null>(null);
+  // Current working ImageBitmap
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
-  // Whether the bitmap has bg removed
   const [bgRemoved, setBgRemoved] = useState(false);
 
-  // Editor settings
+  // Undo history for color eraser & adjustments
+  const [history, setHistory] = useState<ImageBitmap[]>([]);
+
+  // Active Tool
+  const [activeTool, setActiveTool] = useState<ActiveTool>("adjust");
+
+  // Crop First State (proportions 0..1)
+  const [cropBox, setCropBox] = useState<{ x: number; y: number; w: number; h: number }>({
+    x: 0.15,
+    y: 0.15,
+    w: 0.7,
+    h: 0.7,
+  });
+  const [croppingBusy, setCroppingBusy] = useState(false);
+
+  // Color Eraser State
+  const [eraseMode, setEraseMode] = useState<"flood" | "global">("flood");
+  const [tolerance, setTolerance] = useState(25);
+  const [colorEraseNotice, setColorEraseNotice] = useState<string | null>(null);
+
+  // General settings
   const [bgShape, setBgShape] = useState<BgShape>("transparent");
   const [bgColor, setBgColor] = useState("#FFFFFF");
   const [adj, setAdj] = useState<Adjustments>(DEFAULT_ADJ);
   const [flipped, setFlipped] = useState(false);
   const [cropped, setCropped] = useState(false);
-
-  // Panel open state
   const [adjOpen, setAdjOpen] = useState(false);
-
   const [saving, setSaving] = useState(false);
 
   const previewRef = useRef<HTMLCanvasElement>(null);
-  // Keep a ref to the latest bitmap so effects don't go stale
   const bitmapRef = useRef<ImageBitmap | null>(null);
 
-  // ── Draw preview whenever anything changes ─────────────────────────
+  // ── Draw preview ───────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = previewRef.current;
     const bmp = bitmapRef.current;
@@ -295,7 +397,6 @@ export function ImageEditor({
     composite(canvas, bmp, { bgShape, bgColor, adj, flipped, cropped });
   }, [bgShape, bgColor, adj, flipped, cropped]);
 
-  // Use layout effect so the canvas is always in sync before paint
   useLayoutEffect(() => {
     draw();
   }, [draw]);
@@ -305,7 +406,6 @@ export function ImageEditor({
     let cancelled = false;
 
     async function run() {
-      // Load the file into an ImageBitmap
       let original: ImageBitmap;
       try {
         original = await createImageBitmap(file);
@@ -315,12 +415,11 @@ export function ImageEditor({
       }
       if (cancelled) return;
 
-      // Show the original immediately while we remove bg
+      setOriginalBitmap(original);
       bitmapRef.current = original;
       setBitmap(original);
       setPhase("removing-bg");
 
-      // ── Auto background removal ──────────────────────────────────
       try {
         const { removeBackground } = await import("@imgly/background-removal");
         const resultBlob = await removeBackground(file, {
@@ -339,8 +438,7 @@ export function ImageEditor({
         if (cancelled) return;
         console.warn("BG removal failed", err);
         setBgError(
-          "Auto background removal failed — your original image is shown. " +
-          "Try again or skip and place the image as-is.",
+          "Auto background removal failed — your original image is shown. You can also use the Crop tool or Color Erase.",
         );
         setPhase("bg-error");
       }
@@ -351,7 +449,6 @@ export function ImageEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
-  // Re-draw when bitmap changes
   useEffect(() => {
     bitmapRef.current = bitmap;
     draw();
@@ -359,6 +456,7 @@ export function ImageEditor({
 
   // ── Manual bg removal retry ────────────────────────────────────────
   async function handleRetryBgRemoval() {
+    if (!originalBitmap) return;
     setBgError(null);
     setPhase("removing-bg");
     try {
@@ -371,20 +469,228 @@ export function ImageEditor({
       setPhase("ready");
     } catch (err) {
       console.warn("BG removal retry failed", err);
-      setBgError("Still couldn't remove the background. You can place the image as-is.");
+      setBgError("Could not remove background automatically. Try the Crop or Color Erase tool.");
       setPhase("bg-error");
     }
   }
 
   // ── Restore original ───────────────────────────────────────────────
   async function handleRestoreOriginal() {
+    if (!originalBitmap) return;
     try {
       const bmp = await createImageBitmap(file);
       bitmapRef.current = bmp;
       setBitmap(bmp);
       setBgRemoved(false);
+      setHistory([]);
       setPhase("ready");
     } catch { /* ignore */ }
+  }
+
+  // ── Undo ───────────────────────────────────────────────────────────
+  function handleUndo() {
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    setHistory((h) => h.slice(0, -1));
+    bitmapRef.current = previous;
+    setBitmap(previous);
+  }
+
+  function pushHistory(bmp: ImageBitmap) {
+    setHistory((h) => [...h.slice(-4), bmp]);
+  }
+
+  // ── Crop First Execution ───────────────────────────────────────────
+  async function handleApplyCrop(withAiRemoval: boolean) {
+    const src = originalBitmap || bitmap;
+    if (!src) return;
+
+    setCroppingBusy(true);
+    setBgError(null);
+
+    try {
+      const sx = Math.max(0, Math.round(cropBox.x * src.width));
+      const sy = Math.max(0, Math.round(cropBox.y * src.height));
+      const sw = Math.min(src.width - sx, Math.max(10, Math.round(cropBox.w * src.width)));
+      const sh = Math.min(src.height - sy, Math.max(10, Math.round(cropBox.h * src.height)));
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = sw;
+      offscreen.height = sh;
+      const ctx = offscreen.getContext("2d")!;
+      ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      if (withAiRemoval) {
+        setPhase("removing-bg");
+        const cropBlob = await new Promise<Blob>((res, rej) => {
+          offscreen.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png");
+        });
+
+        const { removeBackground } = await import("@imgly/background-removal");
+        const resultBlob = await removeBackground(cropBlob, { publicPath: "/bg-removal/" });
+        const bmp = await createImageBitmap(resultBlob);
+
+        if (bitmap) pushHistory(bitmap);
+        bitmapRef.current = bmp;
+        setBitmap(bmp);
+        setBgRemoved(true);
+        setPhase("ready");
+      } else {
+        const bmp = await createImageBitmap(offscreen);
+        if (bitmap) pushHistory(bitmap);
+        bitmapRef.current = bmp;
+        setBitmap(bmp);
+        setBgRemoved(false);
+        setPhase("ready");
+      }
+
+      setActiveTool("adjust");
+    } catch (err) {
+      console.warn("Crop failed", err);
+      setBgError("Crop extraction encountered an error. Try cropping again or place as-is.");
+      setPhase("bg-error");
+    } finally {
+      setCroppingBusy(false);
+    }
+  }
+
+  // ── Color Eraser / Magic Wand Click Handler ────────────────────────
+  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (activeTool !== "color-erase") return;
+    const canvas = previewRef.current;
+    const bmp = bitmapRef.current;
+    if (!canvas || !bmp) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const canvasY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    // Account for contain scale & offsets
+    const SIZE = canvas.width;
+    const srcW = bmp.width;
+    const srcH = bmp.height;
+    const scale = Math.min(SIZE / srcW, SIZE / srcH);
+    const dw = srcW * scale;
+    const dh = srcH * scale;
+    const dx = (SIZE - dw) / 2;
+    const dy = (SIZE - dh) / 2;
+
+    let adjustedCanvasX = canvasX;
+    if (flipped) {
+      adjustedCanvasX = SIZE - canvasX;
+    }
+
+    const bmpX = Math.round((adjustedCanvasX - dx) / scale);
+    const bmpY = Math.round((canvasY - dy) / scale);
+
+    if (bmpX < 0 || bmpX >= srcW || bmpY < 0 || bmpY >= srcH) return;
+
+    // Draw working bitmap on offscreen canvas to access raw pixel data
+    const offscreen = document.createElement("canvas");
+    offscreen.width = srcW;
+    offscreen.height = srcH;
+    const ctx = offscreen.getContext("2d")!;
+    ctx.drawImage(bmp, 0, 0);
+
+    const imgData = ctx.getImageData(0, 0, srcW, srcH);
+    const pIdx = (bmpY * srcW + bmpX) * 4;
+    const tr = imgData.data[pIdx];
+    const tg = imgData.data[pIdx + 1];
+    const tb = imgData.data[pIdx + 2];
+    const ta = imgData.data[pIdx + 3];
+
+    if (ta === 0) {
+      setColorEraseNotice("Clicked pixel is already transparent.");
+      return;
+    }
+
+    if (eraseMode === "flood") {
+      floodFillErase(imgData, bmpX, bmpY, tolerance);
+    } else {
+      globalColorErase(imgData, tr, tg, tb, tolerance);
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    createImageBitmap(offscreen).then((newBmp) => {
+      pushHistory(bmp);
+      bitmapRef.current = newBmp;
+      setBitmap(newBmp);
+      setBgRemoved(true);
+      setColorEraseNotice(`Color removed! Tap more areas or click Done.`);
+    });
+  }
+
+  // ── Drag Box in Crop Mode ──────────────────────────────────────────
+  const cropDragRef = useRef<{
+    handle: string;
+    startX: number;
+    startY: number;
+    initialBox: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+
+  function startCropDrag(e: ReactPointerEvent<HTMLElement>, handle: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    cropDragRef.current = {
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialBox: { ...cropBox },
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onCropPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const d = cropDragRef.current;
+    if (!d) return;
+
+    const canvas = previewRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const deltaX = (e.clientX - d.startX) / rect.width;
+    const deltaY = (e.clientY - d.startY) / rect.height;
+
+    const b = d.initialBox;
+    let { x, y, w, h } = b;
+
+    if (d.handle === "move") {
+      x = Math.max(0, Math.min(1 - w, b.x + deltaX));
+      y = Math.max(0, Math.min(1 - h, b.y + deltaY));
+    } else if (d.handle === "se") {
+      w = Math.max(0.1, Math.min(1 - b.x, b.w + deltaX));
+      h = Math.max(0.1, Math.min(1 - b.y, b.h + deltaY));
+    } else if (d.handle === "nw") {
+      const newX = Math.max(0, Math.min(b.x + b.w - 0.1, b.x + deltaX));
+      const newY = Math.max(0, Math.min(b.y + b.h - 0.1, b.y + deltaY));
+      w = b.w + (b.x - newX);
+      h = b.h + (b.y - newY);
+      x = newX;
+      y = newY;
+    } else if (d.handle === "ne") {
+      const newY = Math.max(0, Math.min(b.y + b.h - 0.1, b.y + deltaY));
+      w = Math.max(0.1, Math.min(1 - b.x, b.w + deltaX));
+      h = b.h + (b.y - newY);
+      y = newY;
+    } else if (d.handle === "sw") {
+      const newX = Math.max(0, Math.min(b.x + b.w - 0.1, b.x + deltaX));
+      w = b.w + (b.x - newX);
+      h = Math.max(0.1, Math.min(1 - b.y, b.h + deltaY));
+      x = newX;
+    }
+
+    setCropBox({
+      x: Math.round(x * 100) / 100,
+      y: Math.round(y * 100) / 100,
+      w: Math.round(w * 100) / 100,
+      h: Math.round(h * 100) / 100,
+    });
+  }
+
+  function onCropPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    if (cropDragRef.current) {
+      cropDragRef.current = null;
+    }
   }
 
   // ── Save / export ──────────────────────────────────────────────────
@@ -408,11 +714,12 @@ export function ImageEditor({
   }
 
   // ── Derived ────────────────────────────────────────────────────────
-  const isProcessing = phase === "loading" || phase === "removing-bg";
-  const isReady = phase === "ready" || phase === "bg-error";
+  const isProcessing = phase === "loading" || phase === "removing-bg" || croppingBusy;
+  const isReady = (phase === "ready" || phase === "bg-error") && !croppingBusy;
 
   const phaseLabel =
     phase === "loading" ? "Loading image…" :
+    croppingBusy ? "Extracting logo from crop…" :
     phase === "removing-bg" ? "Extracting design…" :
     null;
 
@@ -461,14 +768,18 @@ export function ImageEditor({
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div>
             <h3 className="font-display text-base font-bold tracking-[-0.02em] sm:text-lg">
-              Edit your image
+              Extract Logo or Design
             </h3>
             <p className="mt-0.5 text-[11px] text-smoke">
               {isProcessing
-                ? "Hang on — we're extracting your design from the background."
-                : bgRemoved
-                  ? "Background removed ✓ — adjust and place on your tee."
-                  : "Adjust your image, then place it on the tee."}
+                ? "Processing your image…"
+                : activeTool === "crop"
+                  ? "Drag the box around the logo you want to extract."
+                  : activeTool === "color-erase"
+                    ? "Click on any background colour to make it transparent."
+                    : bgRemoved
+                      ? "Design extracted ✓ — fine-tune or place on your tee."
+                      : "Adjust your design, then place it on the tee."}
             </p>
           </div>
           <button
@@ -484,13 +795,56 @@ export function ImageEditor({
         {/* ── Body ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-5">
 
-          {/* ── Live preview canvas ─────────────────────────────── */}
+          {/* ── Tool Tabs (AI / Crop First / Color Removal) ───────── */}
+          <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-line bg-shell/50 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTool("adjust")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold transition",
+                activeTool === "adjust"
+                  ? "bg-paper text-ink shadow-sm"
+                  : "text-smoke hover:text-ink",
+              )}
+            >
+              <Sparkles size={13} className="text-rust" />
+              Auto AI
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool("crop")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold transition",
+                activeTool === "crop"
+                  ? "bg-paper text-ink shadow-sm"
+                  : "text-smoke hover:text-ink",
+              )}
+            >
+              <Crop size={13} className="text-rust" />
+              Crop Box
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool("color-erase")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold transition",
+                activeTool === "color-erase"
+                  ? "bg-paper text-ink shadow-sm"
+                  : "text-smoke hover:text-ink",
+              )}
+            >
+              <Wand2 size={13} className="text-rust" />
+              Remove Color
+            </button>
+          </div>
+
+          {/* ── Live preview canvas + interactive overlays ──────── */}
           <div className="flex justify-center">
             <div className="relative">
-              {/* Outer ring — shows current bg shape visually */}
+              {/* Outer ring */}
               <div
                 className={cn(
-                  "overflow-hidden transition-all duration-300",
+                  "relative overflow-hidden transition-all duration-300",
                   bgShape === "circle" ? "rounded-full" :
                   bgShape === "rounded" ? "rounded-[22%]" :
                   bgShape === "square" ? "rounded-none" :
@@ -502,12 +856,59 @@ export function ImageEditor({
                   ref={previewRef}
                   width={220}
                   height={220}
-                  className="block h-full w-full"
+                  onClick={handleCanvasClick}
+                  className={cn(
+                    "block h-full w-full",
+                    activeTool === "color-erase" ? "cursor-crosshair" : "cursor-default",
+                  )}
                 />
+
+                {/* Crop Box Overlay */}
+                {activeTool === "crop" && !isProcessing && (
+                  <div
+                    className="absolute inset-0 touch-none select-none"
+                    onPointerMove={onCropPointerMove}
+                    onPointerUp={onCropPointerUp}
+                    onPointerCancel={onCropPointerUp}
+                  >
+                    {/* Bounding box */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: `${cropBox.x * 100}%`,
+                        top: `${cropBox.y * 100}%`,
+                        width: `${cropBox.w * 100}%`,
+                        height: `${cropBox.h * 100}%`,
+                        outline: "2px solid #C8542F",
+                        boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.45)",
+                        cursor: "move",
+                      }}
+                      onPointerDown={(e) => startCropDrag(e, "move")}
+                    >
+                      {/* Corner Handles */}
+                      <span
+                        className="absolute -left-1.5 -top-1.5 h-3.5 w-3.5 cursor-nw-resize rounded-full border-2 border-white bg-rust shadow-sm"
+                        onPointerDown={(e) => startCropDrag(e, "nw")}
+                      />
+                      <span
+                        className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 cursor-ne-resize rounded-full border-2 border-white bg-rust shadow-sm"
+                        onPointerDown={(e) => startCropDrag(e, "ne")}
+                      />
+                      <span
+                        className="absolute -bottom-1.5 -left-1.5 h-3.5 w-3.5 cursor-sw-resize rounded-full border-2 border-white bg-rust shadow-sm"
+                        onPointerDown={(e) => startCropDrag(e, "sw")}
+                      />
+                      <span
+                        className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-se-resize rounded-full border-2 border-white bg-rust shadow-sm"
+                        onPointerDown={(e) => startCropDrag(e, "se")}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Processing overlay */}
-              {isProcessing ? (
+              {isProcessing && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 rounded-2xl bg-paper/90 backdrop-blur-sm">
                   <div className="relative">
                     <Loader2 size={28} className="animate-spin text-rust" />
@@ -515,28 +916,155 @@ export function ImageEditor({
                   <span className="text-[12px] font-semibold text-ink">
                     {phaseLabel}
                   </span>
-                  {phase === "removing-bg" ? (
+                  {phase === "removing-bg" && (
                     <span className="max-w-[160px] text-center text-[10px] leading-relaxed text-smoke">
                       AI model runs in your browser. First use downloads ~40 MB.
                     </span>
-                  ) : null}
+                  )}
                 </div>
-              ) : null}
+              )}
 
               {/* Bg-removed badge */}
-              {bgRemoved && !isProcessing ? (
+              {bgRemoved && !isProcessing && activeTool === "adjust" && (
                 <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-moss/15 px-2.5 py-0.5 text-[9.5px] font-semibold text-moss">
-                  Background removed ✓
+                  Design extracted ✓
                 </span>
-              ) : null}
+              )}
             </div>
           </div>
 
-          {/* ── BG removal status / error ───────────────────────── */}
-          {bgError ? (
+          {/* ── TOOL PANEL 1: CROP BOX CONTROLS ───────────────────── */}
+          {activeTool === "crop" && !isProcessing && (
+            <div className="rounded-2xl border border-rust/30 bg-rust/[0.03] p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[12px] font-semibold text-ink">Crop Box Around Logo</p>
+                  <p className="mt-0.5 text-[10.5px] text-smoke leading-relaxed">
+                    Draw or drag the box directly over the logo. Background removal will run on that crop only.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => handleApplyCrop(true)}
+                  className={buttonClass({ size: "sm" })}
+                >
+                  <Sparkles size={13} />
+                  Extract Logo with AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyCrop(false)}
+                  className={buttonClass({ variant: "outline", size: "sm" })}
+                >
+                  <Crop size={13} />
+                  Keep Box As-is
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTool("adjust")}
+                  className={buttonClass({ variant: "ghost", size: "sm" })}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── TOOL PANEL 2: COLOR REMOVAL CONTROLS ──────────────── */}
+          {activeTool === "color-erase" && !isProcessing && (
+            <div className="rounded-2xl border border-line bg-shell/40 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[12px] font-semibold text-ink">Click Color to Remove</p>
+                  <p className="mt-0.5 text-[10.5px] text-smoke leading-relaxed">
+                    Tap any color in the preview above to erase it instantly.
+                  </p>
+                </div>
+                {history.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    className="flex items-center gap-1 rounded-lg border border-line bg-paper px-2.5 py-1 text-[11px] font-medium text-smoke hover:text-ink"
+                  >
+                    <Undo2 size={12} />
+                    Undo
+                  </button>
+                )}
+              </div>
+
+              {colorEraseNotice && (
+                <p className="mt-2 text-[10.5px] font-medium text-rust animate-fade-in">
+                  {colorEraseNotice}
+                </p>
+              )}
+
+              {/* Erase Mode */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEraseMode("flood")}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-xl border p-2 text-center transition",
+                    eraseMode === "flood"
+                      ? "border-ink bg-ink/5 ring-1 ring-ink"
+                      : "border-line bg-paper text-smoke hover:border-ink/30",
+                  )}
+                >
+                  <span className="text-[11px] font-semibold text-ink">Connected / Tap</span>
+                  <span className="text-[9.5px] text-smoke">Erases surrounding background</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEraseMode("global")}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-xl border p-2 text-center transition",
+                    eraseMode === "global"
+                      ? "border-ink bg-ink/5 ring-1 ring-ink"
+                      : "border-line bg-paper text-smoke hover:border-ink/30",
+                  )}
+                >
+                  <span className="text-[11px] font-semibold text-ink">All matching</span>
+                  <span className="text-[9.5px] text-smoke">Erases this color everywhere</span>
+                </button>
+              </div>
+
+              {/* Tolerance Slider */}
+              <div className="mt-3">
+                <span className="flex items-center justify-between text-[10.5px] font-medium text-smoke">
+                  Color tolerance
+                  <span className="font-semibold text-ink">{tolerance}%</span>
+                </span>
+                <input
+                  type="range"
+                  min={5}
+                  max={70}
+                  step={1}
+                  value={tolerance}
+                  onChange={(e) => setTolerance(Number(e.target.value))}
+                  className="mt-1 w-full accent-ink"
+                />
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveTool("adjust")}
+                  className={buttonClass({ variant: "outline", size: "sm" })}
+                >
+                  Done editing
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── TOOL PANEL 3: AUTO AI STATUS / ERROR ───────────────── */}
+          {bgError && (
             <div className="rounded-2xl border border-rust/25 bg-rust/5 p-3.5">
               <p className="text-[11px] font-semibold text-rust">
-                Background removal failed
+                Extraction note
               </p>
               <p className="mt-0.5 text-[10.5px] leading-relaxed text-smoke">
                 {bgError}
@@ -548,21 +1076,37 @@ export function ImageEditor({
                   className={buttonClass({ variant: "outline", size: "sm" })}
                 >
                   <RefreshCcw size={13} />
-                  Try again
+                  Try AI again
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTool("crop")}
+                  className={buttonClass({ variant: "outline", size: "sm" })}
+                >
+                  <Crop size={13} />
+                  Crop to logo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTool("color-erase")}
+                  className={buttonClass({ variant: "outline", size: "sm" })}
+                >
+                  <Wand2 size={13} />
+                  Erase color
                 </button>
               </div>
             </div>
-          ) : null}
+          )}
 
-          {/* ── Restore original (shown after bg removal) ───────── */}
-          {bgRemoved && isReady ? (
+          {/* ── Restore original button ───────────────────────────── */}
+          {bgRemoved && isReady && activeTool === "adjust" && (
             <div className="flex items-center justify-between rounded-2xl border border-line bg-shell/50 px-3.5 py-3">
               <div>
                 <p className="text-[11px] font-semibold text-ink">
-                  Design extracted
+                  Design isolated
                 </p>
                 <p className="mt-0.5 text-[10px] text-smoke">
-                  Background has been removed automatically.
+                  Need the original photo or want to re-crop?
                 </p>
               </div>
               <button
@@ -574,10 +1118,10 @@ export function ImageEditor({
                 Restore original
               </button>
             </div>
-          ) : null}
+          )}
 
-          {/* ── Quick actions (flip / crop) ──────────────────────── */}
-          {isReady ? (
+          {/* ── Quick actions (flip / crop square) ────────────────── */}
+          {isReady && activeTool === "adjust" && (
             <div className="flex gap-2">
               <button
                 type="button"
@@ -608,10 +1152,10 @@ export function ImageEditor({
                 {cropped ? "Uncrop" : "Crop square"}
               </button>
             </div>
-          ) : null}
+          )}
 
-          {/* ── Background shape ─────────────────────────────────── */}
-          {isReady ? (
+          {/* ── Background shape ──────────────────────────────────── */}
+          {isReady && activeTool === "adjust" && (
             <div>
               <p className="mb-2 text-[11px] font-semibold text-ink">
                 Background shape
@@ -639,10 +1183,10 @@ export function ImageEditor({
                 })}
               </div>
             </div>
-          ) : null}
+          )}
 
-          {/* ── Background colour (only when shape is not transparent) ── */}
-          {isReady && bgShape !== "transparent" ? (
+          {/* ── Background colour ─────────────────────────────────── */}
+          {isReady && activeTool === "adjust" && bgShape !== "transparent" && (
             <div>
               <p className="mb-2 text-[11px] font-semibold text-ink">
                 Background colour
@@ -664,7 +1208,6 @@ export function ImageEditor({
                     style={{ backgroundColor: hex }}
                   />
                 ))}
-                {/* Custom colour */}
                 <label
                   className="relative h-8 w-8 cursor-pointer rounded-full border-2 border-dashed border-smoke/50 hover:border-ink transition-transform hover:scale-110"
                   title="Custom colour"
@@ -685,10 +1228,10 @@ export function ImageEditor({
                 {bgColor}
               </p>
             </div>
-          ) : null}
+          )}
 
-          {/* ── Adjustments ──────────────────────────────────────── */}
-          {isReady ? (
+          {/* ── Adjustments panel ─────────────────────────────────── */}
+          {isReady && activeTool === "adjust" && (
             <div className="overflow-hidden rounded-2xl border border-line">
               <button
                 type="button"
@@ -697,7 +1240,7 @@ export function ImageEditor({
               >
                 <span className="flex items-center gap-2 text-[11px] font-semibold text-ink">
                   <Sliders size={14} className="text-smoke" />
-                  Adjustments
+                  Image adjustments
                   {JSON.stringify(adj) !== JSON.stringify(DEFAULT_ADJ) ? (
                     <span className="rounded-full bg-rust/15 px-1.5 py-0.5 text-[8.5px] font-bold text-rust">
                       edited
@@ -711,7 +1254,7 @@ export function ImageEditor({
                 )}
               </button>
 
-              {adjOpen ? (
+              {adjOpen && (
                 <div className="space-y-4 border-t border-line px-4 pb-4 pt-3">
                   {(
                     [
@@ -747,9 +1290,9 @@ export function ImageEditor({
                     Reset to defaults
                   </button>
                 </div>
-              ) : null}
+              )}
             </div>
-          ) : null}
+          )}
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────── */}

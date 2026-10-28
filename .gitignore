@@ -9,3 +9,4 @@ vibe_images/
 .DS_Store
 next-env.d.ts
 tsconfig.tsbuildinfo
+.tmp-e2e/

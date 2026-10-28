@@ -10,11 +10,13 @@ import {
   Check,
   FlipHorizontal2,
   Grid3x3,
+  Image as ImageIcon,
   Loader2,
   ShoppingBag,
   Sparkles,
   Type,
   Upload,
+  Wand2,
   X,
   Zap,
 } from "lucide-react";
@@ -119,6 +121,7 @@ export function CustomStudio() {
   const [face, setFace] = useState<"front" | "back">("front");
   const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
   const [sizeModal, setSizeModal] = useState<SizeCategoryModal | null>(null);
+  const [uploadModeFile, setUploadModeFile] = useState<File | null>(null);
   // text add modal
   const [showTextModal, setShowTextModal] = useState(false);
   const [textDraft, setTextDraft] = useState("");
@@ -276,7 +279,24 @@ export function CustomStudio() {
 
   // ── Image upload flow ─────────────────────────────────────────────
   function handleFileSelected(file: File) {
-    setImageEditorFile(file);
+    setUploadModeFile(file);
+  }
+
+  function handleUseFullImage() {
+    if (!uploadModeFile) return;
+    setSizeModal({ file: uploadModeFile, pending: false });
+    setUploadModeFile(null);
+  }
+
+  function handleExtractDesign() {
+    if (!uploadModeFile) return;
+    setImageEditorFile(uploadModeFile);
+    setUploadModeFile(null);
+  }
+
+  function handleUploadModeCancel() {
+    setUploadModeFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleEditorSave(blob: Blob, fileName: string) {
@@ -461,6 +481,89 @@ export function CustomStudio() {
                 Uploading…
               </div>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Upload mode selector modal */}
+      {uploadModeFile ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose upload mode"
+          className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"
+          onClick={handleUploadModeCancel}
+        >
+          <div
+            className="w-full max-w-sm rounded-[2rem] border border-line bg-paper p-5 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-bold tracking-[-0.02em]">
+                  How do you want to use this image?
+                </h3>
+                <p className="mt-1 text-[12px] text-smoke">
+                  Place it as-is, or extract just the logo / design.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleUploadModeCancel}
+                aria-label="Close"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-smoke transition hover:bg-shell hover:text-ink"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Preview thumbnail */}
+            <div className="mt-4 flex justify-center">
+              <div className="h-[100px] w-[100px] overflow-hidden rounded-2xl border border-line bg-shell">
+                <img
+                  src={URL.createObjectURL(uploadModeFile)}
+                  alt="Upload preview"
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2.5">
+              {/* Option 1: Use full image */}
+              <button
+                type="button"
+                onClick={handleUseFullImage}
+                className="flex items-start gap-3 rounded-2xl border border-line bg-paper p-3.5 text-left transition hover:border-ink/40 hover:bg-shell/50"
+              >
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-shell text-smoke">
+                  <ImageIcon size={16} />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-[13px] font-semibold">Use full image</span>
+                  <span className="text-[11px] leading-relaxed text-smoke">
+                    Place the entire photo on the tee as-is — no background removal.
+                  </span>
+                </span>
+              </button>
+
+              {/* Option 2: Extract design */}
+              <button
+                type="button"
+                onClick={handleExtractDesign}
+                className="flex items-start gap-3 rounded-2xl border border-ink/25 bg-ink/[0.02] p-3.5 text-left transition hover:border-ink/40 hover:bg-shell/50"
+              >
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-rust/10 text-rust">
+                  <Wand2 size={16} />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-[13px] font-semibold">Extract design</span>
+                  <span className="text-[11px] leading-relaxed text-smoke">
+                    Remove the background, crop to a logo, or pick a colour to erase — get just the design.
+                  </span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

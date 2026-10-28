@@ -304,18 +304,17 @@ export function TeeCanvas({
             const styleOv = placement.style;
             const bgShape = styleOv?.bgShape ?? "none";
             const bgColor = styleOv?.bgColor ?? "#FFFFFF";
-            const isTransparent = bgShape === "none" || bgShape === "transparent";
+
+            // Default: all placements (builtins + images) render with a
+            // transparent background unless the user explicitly set a shape.
+            const isTransparent = bgShape === "transparent" || bgShape === "none";
 
             const innerRadius =
               bgShape === "circle"  ? "50%" :
               bgShape === "rounded" ? "20%" :
-              bgShape === "square"  ? "4px" :
-              parsed?.type === "builtin" ? "50%" : "4px";
+              bgShape === "square"  ? "4px" : "4px";
 
-            const innerBg =
-              isTransparent
-                ? (parsed?.type === "builtin" ? getSticker(parsed.id).bg : "transparent")
-                : bgColor;
+            const innerBg = isTransparent ? "transparent" : bgColor;
 
             const innerStyle: React.CSSProperties = {
               width: "100%",
@@ -323,11 +322,12 @@ export function TeeCanvas({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: isTransparent && parsed?.type === "image" ? "0" : "10%",
+              // no padding when fully transparent (SVG art fills the element)
+              padding: isTransparent ? "0" : "10%",
               borderRadius: innerRadius,
               backgroundColor: innerBg,
               boxShadow:
-                !isTransparent || parsed?.type === "builtin"
+                !isTransparent
                   ? "inset 0 0 0 1.5px rgba(255,255,255,0.25), 0 6px 18px -5px rgba(23,21,18,0.28)"
                   : undefined,
             };

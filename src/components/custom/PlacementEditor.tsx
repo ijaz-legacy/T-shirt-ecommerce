@@ -30,12 +30,38 @@ const COLORS = [
 
 type BgShape = "transparent" | "circle" | "rounded" | "square";
 
-const SHAPES: { id: BgShape; label: string; cls: string }[] = [
-  { id: "transparent", label: "None",    cls: "rounded-none border-dashed" },
-  { id: "circle",      label: "Circle",  cls: "rounded-full" },
-  { id: "rounded",     label: "Rounded", cls: "rounded-2xl" },
-  { id: "square",      label: "Square",  cls: "rounded-none" },
+const SHAPES: { id: BgShape; label: string }[] = [
+  { id: "transparent", label: "None (transparent)" },
+  { id: "circle",      label: "Circle"  },
+  { id: "rounded",     label: "Rounded" },
+  { id: "square",      label: "Square"  },
 ];
+
+// Visual shape preview inside the button
+function ShapePreview({ id, bgColor }: { id: BgShape; bgColor: string }) {
+  if (id === "transparent") {
+    // Checkerboard = transparent
+    return (
+      <span
+        className="h-6 w-6 rounded"
+        style={{
+          backgroundImage:
+            "repeating-conic-gradient(#ccc 0% 25%, #f8f8f8 0% 50%)",
+          backgroundSize: "8px 8px",
+        }}
+      />
+    );
+  }
+  const radius =
+    id === "circle"  ? "50%" :
+    id === "rounded" ? "30%" : "3px";
+  return (
+    <span
+      className="h-6 w-6 border border-ink/20"
+      style={{ backgroundColor: bgColor, borderRadius: radius }}
+    />
+  );
+}
 
 const FONTS: { id: "sans" | "serif" | "display" | "mono"; label: string; style: string }[] = [
   { id: "sans",    label: "Clean",   style: "font-sans" },
@@ -117,11 +143,14 @@ export function PlacementEditor({
 
   // ── Preview mini thumbnail ─────────────────────────────────────────
   const previewBg =
-    bgShape === "transparent" ? (sticker ? sticker.bg : "transparent") : bgColor;
+    bgShape === "transparent"
+      ? undefined    // will use checkerboard pattern
+      : bgColor;
   const previewRadius =
     bgShape === "circle"  ? "50%" :
     bgShape === "rounded" ? "20%" :
     bgShape === "square"  ? "4px" : "50%";
+  const previewIsTransparent = bgShape === "transparent";
 
   return (
     <div className="rounded-2xl border border-line bg-paper p-4">
@@ -132,7 +161,15 @@ export function PlacementEditor({
           {sticker ? (
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center p-[10%]"
-              style={{ backgroundColor: previewBg, borderRadius: previewRadius, boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}
+              style={{
+                backgroundColor: previewBg,
+                borderRadius: previewRadius,
+                boxShadow: previewIsTransparent ? undefined : "0 2px 8px rgba(0,0,0,.12)",
+                backgroundImage: previewIsTransparent
+                  ? "repeating-conic-gradient(#ccc 0% 25%, #f8f8f8 0% 50%)"
+                  : undefined,
+                backgroundSize: previewIsTransparent ? "6px 6px" : undefined,
+              }}
             >
               <StickerArt sticker={sticker} fgOverride={fgColor} accentOverride={accentColor} />
             </div>
@@ -254,9 +291,9 @@ export function PlacementEditor({
         {!isText ? (
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-smoke">
-              Background shape
+              Background
             </p>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {SHAPES.map((s) => {
                 const active = bgShape === s.id;
                 return (
@@ -265,15 +302,11 @@ export function PlacementEditor({
                     type="button"
                     onClick={() => patchStyle({ bgShape: s.id })}
                     className={cn(
-                      "flex flex-1 flex-col items-center gap-1 border py-2 text-[10px] font-medium transition",
-                      s.cls,
+                      "flex flex-col items-center gap-1.5 rounded-xl border py-2 px-1 text-[9.5px] font-medium transition",
                       active ? "border-ink bg-ink/5 ring-1 ring-ink" : "border-line hover:border-ink/30",
                     )}
                   >
-                    <span
-                      className={cn("h-5 w-5 border-2 border-current", s.cls)}
-                      style={s.id === "transparent" ? { borderStyle: "dashed" } : {}}
-                    />
+                    <ShapePreview id={s.id} bgColor={bgColor} />
                     {s.label}
                   </button>
                 );

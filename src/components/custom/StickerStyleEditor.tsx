@@ -144,7 +144,12 @@ export function StickerStyleEditor({
                   className="grid h-full w-full place-items-center p-[14%]"
                   style={
                     bgShape === "none"
-                      ? { backgroundColor: sticker.bg, borderRadius: "16px" }
+                      ? {
+                          backgroundColor: "transparent",
+                          backgroundImage: "repeating-conic-gradient(#ccc 0% 25%, #f8f8f8 0% 50%)",
+                          backgroundSize: "8px 8px",
+                          borderRadius: "16px",
+                        }
                       : {}
                   }
                 >
