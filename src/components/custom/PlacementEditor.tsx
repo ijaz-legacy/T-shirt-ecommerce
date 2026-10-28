@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { getSticker, isStickerId, parsePlacementRef } from "@/lib/catalog";
+import { getCategoryFromScale, getSticker, isStickerId, parsePlacementRef } from "@/lib/catalog";
 import { StickerArt } from "@/components/tee/StickerArt";
 import { cn } from "@/lib/cn";
 import type { StickerPlacement } from "@/lib/types";
@@ -127,6 +127,7 @@ export function PlacementEditor({
 
   const sticker = isBuiltin && parsed && isStickerId(parsed.id) ? getSticker(parsed.id) : null;
   const styleOv = placement.style ?? { bgShape: "transparent" as BgShape, bgColor: "#FFFFFF" };
+  const catInfo = getCategoryFromScale(placement.scale);
 
   const bgShape = (styleOv.bgShape as BgShape) ?? "transparent";
   const bgColor = styleOv.bgColor ?? "#FFFFFF";
@@ -183,13 +184,18 @@ export function PlacementEditor({
             </div>
           )}
           <div>
-            <p className="text-[12px] font-semibold">
-              {isText ? (placement.text?.content.slice(0, 20) || "Text") :
-               sticker ? sticker.nameEn :
-               "Your image"}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[12px] font-semibold">
+                {isText ? (placement.text?.content.slice(0, 20) || "Text") :
+                 sticker ? sticker.nameEn :
+                 "Your image"}
+              </p>
+              <span className={cn("rounded-full px-1.5 py-0.2 text-[8.5px] font-bold uppercase", catInfo.badgeCls)}>
+                {catInfo.labelShort}
+              </span>
+            </div>
             <p className="text-[10px] text-smoke">
-              {Math.round(placement.scale)}% · {Math.round(placement.rotation)}°
+              {Math.round(placement.scale)}% · {Math.round(placement.rotation)}° · ₹{catInfo.price}
             </p>
           </div>
         </div>
@@ -332,31 +338,77 @@ export function PlacementEditor({
         ) : null}
 
         {/* ── Size + rotation fine-tune ────────────────────────── */}
-        <div className="flex gap-3">
-          <label className="flex-1">
-            <span className="flex justify-between text-[10px] font-semibold text-smoke">
-              Size
-              <span className="text-ink">{Math.round(placement.scale)}%</span>
-            </span>
+        <div className="space-y-3.5 border-t border-line/60 pt-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-smoke">
+                Size: <span className="font-bold text-ink">{Math.round(placement.scale)}%</span>
+              </span>
+              <span className={cn("rounded-full px-2 py-0.5 text-[9.5px] font-bold tracking-tight", catInfo.badgeCls)}>
+                {catInfo.labelEn} · ₹{catInfo.price}
+              </span>
+            </div>
+
             <input
               type="range" min={8} max={72} step={1}
               value={placement.scale}
               onChange={(e) => onChange(index, { scale: Number(e.target.value) })}
-              className="mt-1 w-full accent-ink"
+              className="w-full accent-ink cursor-pointer"
             />
-          </label>
-          <label className="flex-1">
-            <span className="flex justify-between text-[10px] font-semibold text-smoke">
-              Rotate
-              <span className="text-ink">{Math.round(placement.rotation)}°</span>
-            </span>
+
+            {/* Quick Snap Preset Buttons */}
+            <div className="flex items-center justify-between gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => onChange(index, { scale: 16 })}
+                className={cn(
+                  "flex-1 rounded-xl border py-1 px-1 text-center text-[10px] font-medium transition cursor-pointer",
+                  catInfo.category === "small"
+                    ? "border-ink bg-ink text-paper font-bold shadow-xs"
+                    : "border-line bg-shell/70 text-smoke hover:border-ink/40 hover:text-ink",
+                )}
+              >
+                Small (16%)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(index, { scale: 38 })}
+                className={cn(
+                  "flex-1 rounded-xl border py-1 px-1 text-center text-[10px] font-medium transition cursor-pointer",
+                  catInfo.category === "medium"
+                    ? "border-ink bg-ink text-paper font-bold shadow-xs"
+                    : "border-line bg-shell/70 text-smoke hover:border-ink/40 hover:text-ink",
+                )}
+              >
+                Medium (38%)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(index, { scale: 60 })}
+                className={cn(
+                  "flex-1 rounded-xl border py-1 px-1 text-center text-[10px] font-medium transition cursor-pointer",
+                  catInfo.category === "large"
+                    ? "border-ink bg-ink text-paper font-bold shadow-xs"
+                    : "border-line bg-shell/70 text-smoke hover:border-ink/40 hover:text-ink",
+                )}
+              >
+                Big A4 (60%)
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-[10px] font-semibold text-smoke">
+              <span>Rotate</span>
+              <span className="font-bold text-ink">{Math.round(placement.rotation)}°</span>
+            </div>
             <input
               type="range" min={-180} max={180} step={1}
               value={placement.rotation}
               onChange={(e) => onChange(index, { rotation: Number(e.target.value) })}
-              className="mt-1 w-full accent-ink"
+              className="mt-1 w-full accent-ink cursor-pointer"
             />
-          </label>
+          </div>
         </div>
       </div>
     </div>

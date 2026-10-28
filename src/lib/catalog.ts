@@ -227,9 +227,44 @@ export function getSticker(id: StickerId): Sticker {
   return STICKER_MAP[id];
 }
 
+export function getCategoryFromScale(scale: number): {
+  category: StickerCategory;
+  labelEn: string;
+  labelShort: string;
+  price: number;
+  badgeCls: string;
+} {
+  // scale is % width of tee container (8 to 72)
+  if (scale <= 27) {
+    return {
+      category: "small",
+      labelEn: "Small — Logo / Badge",
+      labelShort: "Small",
+      price: CUSTOM_PRICE_HALF,
+      badgeCls: "bg-shell text-smoke border border-line",
+    };
+  }
+  if (scale <= 48) {
+    return {
+      category: "medium",
+      labelEn: "Medium — Half A4 Design",
+      labelShort: "Medium",
+      price: CUSTOM_PRICE_HALF,
+      badgeCls: "bg-gold/20 text-ink border border-gold/40",
+    };
+  }
+  return {
+    category: "large",
+    labelEn: "Big — Full A4 Sheet",
+    labelShort: "Big A4",
+    price: CUSTOM_PRICE_FULL,
+    badgeCls: "bg-rose-500/15 text-rose-700 border border-rose-300 dark:text-rose-300",
+  };
+}
+
 export function priceForScale(scale: number): number {
   if (scale > 1) {
-    return scale >= 40 ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
+    return scale > 48 ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
   }
   return scale >= FULL_SCALE_THRESHOLD ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
 }

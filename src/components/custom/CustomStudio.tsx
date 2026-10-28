@@ -38,6 +38,7 @@ import {
   STICKERS,
   TEE_COLORS,
   calcCustomUnitPrice,
+  getCategoryFromScale,
   getFit,
   getSticker,
   getTeeColor,
@@ -159,9 +160,8 @@ export function CustomStudio() {
   const fitName = lang === "ta" ? fit.nameTa : fit.nameEn;
   const colorName = lang === "ta" ? color.nameTa : color.nameEn;
   const scales = placements.map((p) => p.scale);
-  // scale is now width-% (5–75). Map to old pricing: ≥40% = full price
-  const unitPrice = calcCustomUnitPrice(fitId, scales.map((s) => s >= 40 ? 0.7 : 0.3));
-  const designTotal = scales.reduce((s, sc) => s + (sc >= 40 ? 100 : 59), 0);
+  const unitPrice = calcCustomUnitPrice(fitId, scales);
+  const designTotal = scales.reduce((s, sc) => s + (sc > 48 ? 100 : 59), 0);
   const total = unitPrice * qty;
   const selectedPlacement = selectedIndex !== null ? (placements[selectedIndex] ?? null) : null;
 
@@ -1159,6 +1159,7 @@ export function CustomStudio() {
                       ) : (
                         placements.map((placement, index) => {
                           const parsed = parsePlacementRef(placement.ref);
+                          const catInfo = getCategoryFromScale(placement.scale);
                           return (
                             <span
                               key={`${placement.ref}-${index}`}
@@ -1177,8 +1178,11 @@ export function CustomStudio() {
                               <span className="rounded bg-shell px-1 py-0.2 text-[8.5px] uppercase font-semibold text-smoke">
                                 {(placement.face ?? "front") === "back" ? "Back" : "Front"}
                               </span>
+                              <span className={cn("rounded px-1.5 py-0.2 text-[8.5px] font-bold uppercase", catInfo.badgeCls)}>
+                                {catInfo.labelShort}
+                              </span>
                               <span className="text-[9.5px] text-smoke">
-                                {placement.scale >= 40 ? "₹100" : "₹59"}
+                                ₹{catInfo.price}
                               </span>
                             </span>
                           );
