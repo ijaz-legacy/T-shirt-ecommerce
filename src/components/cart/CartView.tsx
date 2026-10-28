@@ -24,6 +24,7 @@ import {
   getFit,
   getSticker,
   getTeeColor,
+  parsePlacementRef,
 } from "@/lib/catalog";
 import { fill, formatINR } from "@/lib/currency";
 import { cn } from "@/lib/cn";
@@ -57,7 +58,10 @@ export function CartView({ products }: { products: Product[] }) {
       return {
         line,
         available: true,
-        unitPrice: calcCustomUnitPrice(line.config.fit, line.config.stickerIds),
+        unitPrice: calcCustomUnitPrice(
+          line.config.fit,
+          line.config.placements.map((p) => p.scale),
+        ),
         name: null,
         product: null,
       };
@@ -202,8 +206,11 @@ export function CartView({ products }: { products: Product[] }) {
               subtitle = `${lang === "ta" ? fit.nameTa : fit.nameEn} · ${line.config.size} · ${
                 lang === "ta" ? color.nameTa : color.nameEn
               }`;
-              stickerNames = line.config.stickerIds.map((id) => {
-                const sticker = getSticker(id);
+              stickerNames = line.config.placements.map((p) => {
+                const parsed = parsePlacementRef(p.ref);
+                if (!parsed) return "";
+                if (parsed.type === "image") return t.custom.yourImage;
+                const sticker = getSticker(parsed.id);
                 return lang === "ta" ? sticker.nameTa : sticker.nameEn;
               });
             }
@@ -218,7 +225,7 @@ export function CartView({ products }: { products: Product[] }) {
                     <div className="flex h-full items-center justify-center p-1.5">
                       <TeePreview
                         colorId={line.config.colorId}
-                        stickerIds={line.config.stickerIds}
+                        placements={line.config.placements}
                       />
                     </div>
                   ) : image ? (

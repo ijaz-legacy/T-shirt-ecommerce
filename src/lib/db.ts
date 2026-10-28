@@ -55,6 +55,15 @@ const SCHEMA: InStatement[] = [
     bytes BLOB NOT NULL,
     created_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS stickers (
+    id TEXT PRIMARY KEY,
+    name_en TEXT NOT NULL,
+    name_ta TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     order_number TEXT NOT NULL UNIQUE,
@@ -145,16 +154,32 @@ async function createClientInstance(): Promise<Client> {
 
   await client.batch(SCHEMA, "write");
   await migrate(client);
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_products_active_sort ON products(active, sort_order)",
+  await client.execute({
+    sql: "CREATE INDEX IF NOT EXISTS idx_products_active_sort ON products(active, sort_order)",
+  });
+  await addColumnIfMissing(
+    client,
+    "product_images",
+    "kind",
+    "TEXT NOT NULL DEFAULT 'product'",
   );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_stickers_active_sort ON stickers(active, sort_order)",
+  );
+  // Add category column to stickers if missing (migration)
+  const stickerCols = await client.execute("PRAGMA table_info(stickers)");
+  if (!stickerCols.rows.some((r) => r.name === "category")) {
+    await client.execute(
+      "ALTER TABLE stickers ADD COLUMN category TEXT NOT NULL DEFAULT 'small'",
+    );
+  }
   await seedProducts(client);
   return client;
 }
 
 async function addColumnIfMissing(
   client: Client,
-  table: "users" | "products",
+  table: "users" | "products" | "product_images",
   column: string,
   definition: string,
 ): Promise<void> {

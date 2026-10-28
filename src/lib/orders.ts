@@ -5,15 +5,19 @@ import type {
 } from "@libsql/client";
 import { allRows, firstRow, getDb } from "@/lib/db";
 import {
-  STICKER_IDS,
+  MAX_PLACEMENTS,
+  MAX_ROTATION,
+  MAX_SCALE,
+  MIN_ROTATION,
+  MIN_SCALE,
   calcCustomUnitPrice,
   calcTotals,
   getFit,
   getTeeColor,
   isFitId,
   isSize,
-  isStickerId,
   isTeeColorId,
+  parsePlacementRef,
 } from "@/lib/catalog";
 import type { OrderInput } from "@/lib/validation";
 import type {
@@ -22,6 +26,7 @@ import type {
   OrderEvent,
   OrderItem,
   OrderStatus,
+  StickerPlacement,
   UserPublic,
 } from "@/lib/types";
 
@@ -116,6 +121,27 @@ interface SqlExecutor {
   execute(statement: InStatement): Promise<ResultSet>;
 }
 
+function isPlacement(value: unknown): value is StickerPlacement {
+  if (!value || typeof value !== "object") return false;
+  const placement = value as Record<string, unknown>;
+  return (
+    typeof placement.ref === "string" &&
+    parsePlacementRef(placement.ref) !== null &&
+    typeof placement.x === "number" &&
+    placement.x >= 0 &&
+    placement.x <= 100 &&
+    typeof placement.y === "number" &&
+    placement.y >= 0 &&
+    placement.y <= 100 &&
+    typeof placement.scale === "number" &&
+    placement.scale >= MIN_SCALE &&
+    placement.scale <= MAX_SCALE &&
+    typeof placement.rotation === "number" &&
+    placement.rotation >= MIN_ROTATION &&
+    placement.rotation <= MAX_ROTATION
+  );
+}
+
 function parseCustomConfig(value: string | null): CustomConfig | null {
   if (!value) return null;
   try {
@@ -124,11 +150,10 @@ function parseCustomConfig(value: string | null): CustomConfig | null {
       !isFitId(data.fit) ||
       !isSize(data.size) ||
       !isTeeColorId(data.colorId) ||
-      !Array.isArray(data.stickerIds) ||
-      data.stickerIds.length < 1 ||
-      data.stickerIds.length > 3 ||
-      !data.stickerIds.every(isStickerId) ||
-      new Set(data.stickerIds).size !== data.stickerIds.length
+      !Array.isArray(data.placements) ||
+      data.placements.length < 1 ||
+      data.placements.length > MAX_PLACEMENTS ||
+      !data.placements.every(isPlacement)
     ) {
       return null;
     }
@@ -136,7 +161,7 @@ function parseCustomConfig(value: string | null): CustomConfig | null {
       fit: data.fit,
       size: data.size,
       colorId: data.colorId,
-      stickerIds: data.stickerIds,
+      placements: data.placements,
     };
   } catch {
     return null;
@@ -396,7 +421,7 @@ async function generateOrderNumber(executor: SqlExecutor): Promise<string> {
   const yy = String(now.getUTCFullYear()).slice(-2);
   const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(now.getUTCDate()).padStart(2, "0");
-  const prefix = `VN-${yy}${mm}${dd}-`;
+  const prefix = `IJ-${yy}${mm}${dd}-`;
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const suffix = randomBytes(3).toString("hex").toUpperCase();
@@ -488,21 +513,37 @@ export async function createOrder(
       continue;
     }
 
-    const uniqueStickers = new Set(line.stickerIds);
+    const placements = line.placements;
     if (
-      line.stickerIds.length < 1 ||
-      line.stickerIds.length > 3 ||
-      uniqueStickers.size !== line.stickerIds.length ||
-      !line.stickerIds.every((id) =>
-        (STICKER_IDS as readonly string[]).includes(id),
-      )
+      placements.length < 1 ||
+      placements.length > MAX_PLACEMENTS ||
+      !placements.every((placement) => parsePlacementRef(placement.ref))
     ) {
       throw new OrderError("INVALID_CUSTOMIZATION");
     }
 
+    const imageIds = placements
+      .map((placement) => parsePlacementRef(placement.ref))
+      .flatMap((ref) => (ref && ref.type === "image" ? [ref.id] : []));
+    if (imageIds.length > 0) {
+      const uniqueIds = [...new Set(imageIds)];
+      const placeholders = uniqueIds.map(() => "?").join(", ");
+      const images = await client.execute({
+        sql: `SELECT id FROM product_images
+              WHERE kind IN ('sticker', 'custom-upload') AND id IN (${placeholders})`,
+        args: uniqueIds,
+      });
+      if (images.rows.length !== uniqueIds.length) {
+        throw new OrderError("INVALID_CUSTOMIZATION");
+      }
+    }
+
     const fit = getFit(line.fit);
     const color = getTeeColor(line.colorId);
-    const unitPrice = calcCustomUnitPrice(line.fit, line.stickerIds);
+    const unitPrice = calcCustomUnitPrice(
+      line.fit,
+      placements.map((placement) => placement.scale),
+    );
     subtotal += unitPrice * line.quantity;
 
     pending.push({
@@ -519,7 +560,7 @@ export async function createOrder(
         fit: line.fit,
         size: line.size,
         colorId: line.colorId,
-        stickerIds: line.stickerIds,
+        placements,
       }),
       quantity: line.quantity,
       unitPrice,

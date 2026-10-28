@@ -1,11 +1,15 @@
 import { z } from "zod";
 import {
   FIT_IDS,
+  MAX_PLACEMENTS,
   MAX_QTY,
-  MAX_STICKERS,
+  MAX_ROTATION,
+  MAX_SCALE,
+  MIN_ROTATION,
+  MIN_SCALE,
   SIZES,
-  STICKER_IDS,
   TEE_COLOR_IDS,
+  parsePlacementRef,
 } from "@/lib/catalog";
 
 export const registerSchema = z.object({
@@ -47,12 +51,24 @@ const printedItemSchema = z.object({
   quantity: z.number().int().min(1).max(MAX_QTY),
 });
 
+const placementSchema = z.object({
+  ref: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((value) => parsePlacementRef(value) !== null, "invalid_ref"),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  scale: z.number().min(MIN_SCALE).max(MAX_SCALE),
+  rotation: z.number().min(MIN_ROTATION).max(MAX_ROTATION),
+});
+
 const customItemSchema = z.object({
   kind: z.literal("custom"),
   fit: z.enum(FIT_IDS),
   size: z.enum(SIZES),
   colorId: z.enum(TEE_COLOR_IDS),
-  stickerIds: z.array(z.enum(STICKER_IDS)).min(1).max(MAX_STICKERS),
+  placements: z.array(placementSchema).min(1).max(MAX_PLACEMENTS),
   quantity: z.number().int().min(1).max(MAX_QTY),
 });
 
@@ -127,9 +143,18 @@ export const orderStatusUpdateSchema = z.object({
   note: z.string().trim().max(200).optional(),
 });
 
+export const stickerInputSchema = z.object({
+  nameEn: z.string().trim().min(2).max(60),
+  nameTa: z.string().trim().min(2).max(90),
+  active: z.boolean(),
+  sortOrder: z.number().int().min(0).max(9999),
+  category: z.enum(["small", "medium", "large"]).default("small"),
+});
+
 export type AdminProductCreateInput = z.infer<typeof adminProductCreateSchema>;
 export type AdminProductUpdateInput = z.infer<typeof adminProductUpdateSchema>;
 export type OrderStatusUpdateInput = z.infer<typeof orderStatusUpdateSchema>;
+export type StickerInputValidated = z.infer<typeof stickerInputSchema>;
 
 export type OrderInput = z.infer<typeof orderSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;

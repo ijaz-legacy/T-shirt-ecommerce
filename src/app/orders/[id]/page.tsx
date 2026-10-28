@@ -15,7 +15,7 @@ import {
 import { TeePreview } from "@/components/tee/TeePreview";
 import { OrderTimeline } from "@/components/tracking/OrderTimeline";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { getSticker } from "@/lib/catalog";
+import { getSticker, parsePlacementRef } from "@/lib/catalog";
 import { fill, formatDate, formatINR } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
 import { getOrderEvents, getOrderForUser } from "@/lib/orders";
@@ -119,8 +119,11 @@ export default async function OrderDetailPage({
                 const name = lang === "ta" ? item.nameTa : item.nameEn;
                 const color = lang === "ta" ? item.colorTa : item.colorEn;
                 const stickerNames =
-                  item.custom?.stickerIds.map((stickerId) => {
-                    const sticker = getSticker(stickerId);
+                  item.custom?.placements.map((placement) => {
+                    const parsed = parsePlacementRef(placement.ref);
+                    if (!parsed) return "";
+                    if (parsed.type === "image") return t.custom.yourImage;
+                    const sticker = getSticker(parsed.id);
                     return lang === "ta" ? sticker.nameTa : sticker.nameEn;
                   }) ?? [];
 
@@ -131,7 +134,7 @@ export default async function OrderDetailPage({
                         <div className="flex h-full items-center justify-center p-1">
                           <TeePreview
                             colorId={item.custom.colorId}
-                            stickerIds={item.custom.stickerIds}
+                            placements={item.custom.placements}
                           />
                         </div>
                       ) : item.image ? (

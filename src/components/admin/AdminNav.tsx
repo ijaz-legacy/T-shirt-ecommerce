@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Shirt } from "lucide-react";
+import { LayoutDashboard, Package, Shirt, Sticker } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { cn } from "@/lib/cn";
 
@@ -28,6 +28,12 @@ export function AdminNav() {
       label: t.admin.nav.products,
       icon: Shirt,
       active: pathname.startsWith("/admin/products"),
+    },
+    {
+      href: "/admin/stickers",
+      label: t.admin.nav.stickers,
+      icon: Sticker,
+      active: pathname.startsWith("/admin/stickers"),
     },
   ];
 

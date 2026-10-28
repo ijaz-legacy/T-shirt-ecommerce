@@ -1,3 +1,5 @@
+import type { StickerPlacement } from "@/lib/types";
+
 export const SIZES = ["S", "M", "L", "XL", "XXL"] as const;
 export type Size = (typeof SIZES)[number];
 
@@ -91,37 +93,76 @@ export interface Sticker {
   id: StickerId;
   nameEn: string;
   nameTa: string;
-  price: number;
   bg: string;
   fg: string;
   accent: string;
 }
 
-const STICKER_PRICE = 59;
-
 export const STICKERS: Sticker[] = [
-  { id: "sun", nameEn: "Sunrise", nameTa: "உதயம்", price: STICKER_PRICE, bg: "#F4C95D", fg: "#B8441F", accent: "#8F2F12" },
-  { id: "wave", nameEn: "Waves", nameTa: "அலைகள்", price: STICKER_PRICE, bg: "#29465B", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "peak", nameEn: "Peaks", nameTa: "சிகரம்", price: STICKER_PRICE, bg: "#4E5A41", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "palm", nameEn: "Palmyra", nameTa: "பனை", price: STICKER_PRICE, bg: "#EAD8B7", fg: "#3F513E", accent: "#B8441F" },
-  { id: "tape", nameEn: "Mixtape", nameTa: "கேசட்", price: STICKER_PRICE, bg: "#C8542F", fg: "#F7F2E9", accent: "#E9B44C" },
-  { id: "bolt", nameEn: "Voltage", nameTa: "மின்னல்", price: STICKER_PRICE, bg: "#F7F2E9", fg: "#C8542F", accent: "#171512" },
-  { id: "moon", nameEn: "Moonlight", nameTa: "நிலவு", price: STICKER_PRICE, bg: "#1C1B19", fg: "#E9B44C", accent: "#F7F2E9" },
-  { id: "bloom", nameEn: "Bloom", nameTa: "பூக்கும்", price: STICKER_PRICE, bg: "#F0CBD2", fg: "#6C2E38", accent: "#E9B44C" },
-  { id: "heart", nameEn: "Whole Heart", nameTa: "முழு இதயம்", price: STICKER_PRICE, bg: "#C8542F", fg: "#F7F2E9", accent: "#F0CBD2" },
-  { id: "eye", nameEn: "Mystic Eye", nameTa: "மாயக் கண்", price: STICKER_PRICE, bg: "#EAD8B7", fg: "#26374F", accent: "#C8542F" },
-  { id: "smile", nameEn: "Good Vibes", nameTa: "நல்ல உணர்வு", price: STICKER_PRICE, bg: "#E9B44C", fg: "#171512", accent: "#F7F2E9" },
-  { id: "star", nameEn: "Star", nameTa: "நட்சத்திரம்", price: STICKER_PRICE, bg: "#26374F", fg: "#E9B44C", accent: "#C8542F" },
+  { id: "sun", nameEn: "Sunrise", nameTa: "உதயம்", bg: "#F4C95D", fg: "#B8441F", accent: "#8F2F12" },
+  { id: "wave", nameEn: "Waves", nameTa: "அலைகள்", bg: "#29465B", fg: "#F7F2E9", accent: "#E9B44C" },
+  { id: "peak", nameEn: "Peaks", nameTa: "சிகரம்", bg: "#4E5A41", fg: "#F7F2E9", accent: "#E9B44C" },
+  { id: "palm", nameEn: "Palmyra", nameTa: "பனை", bg: "#EAD8B7", fg: "#3F513E", accent: "#B8441F" },
+  { id: "tape", nameEn: "Mixtape", nameTa: "கேசட்", bg: "#C8542F", fg: "#F7F2E9", accent: "#E9B44C" },
+  { id: "bolt", nameEn: "Voltage", nameTa: "மின்னல்", bg: "#F7F2E9", fg: "#C8542F", accent: "#171512" },
+  { id: "moon", nameEn: "Moonlight", nameTa: "நிலவு", bg: "#1C1B19", fg: "#E9B44C", accent: "#F7F2E9" },
+  { id: "bloom", nameEn: "Bloom", nameTa: "பூக்கும்", bg: "#F0CBD2", fg: "#6C2E38", accent: "#E9B44C" },
+  { id: "heart", nameEn: "Whole Heart", nameTa: "முழு இதயம்", bg: "#C8542F", fg: "#F7F2E9", accent: "#F0CBD2" },
+  { id: "eye", nameEn: "Mystic Eye", nameTa: "மாயக் கண்", bg: "#EAD8B7", fg: "#26374F", accent: "#C8542F" },
+  { id: "smile", nameEn: "Good Vibes", nameTa: "நல்ல உணர்வு", bg: "#E9B44C", fg: "#171512", accent: "#F7F2E9" },
+  { id: "star", nameEn: "Star", nameTa: "நட்சத்திரம்", bg: "#26374F", fg: "#E9B44C", accent: "#C8542F" },
 ];
 
 export const STICKER_MAP: Record<StickerId, Sticker> = Object.fromEntries(
   STICKERS.map((sticker) => [sticker.id, sticker]),
 ) as Record<StickerId, Sticker>;
 
-export const MAX_STICKERS = 3;
+export const MAX_PLACEMENTS = 3;
 export const MAX_QTY = 10;
 export const FREE_SHIPPING_THRESHOLD = 999;
 export const SHIPPING_FEE = 49;
+
+export const CUSTOM_PRICE_HALF = 59;
+export const CUSTOM_PRICE_FULL = 100;
+export const FULL_SCALE_THRESHOLD = 0.6;
+export const MIN_SCALE = 0.3;
+export const MAX_SCALE = 1;
+export const MIN_ROTATION = -45;
+export const MAX_ROTATION = 45;
+export const BASE_PLACEMENT_SIZE = 32;
+
+// ── Sticker size categories ───────────────────────────────────────────
+// "small"  — logos / icons: max 200 × 200 px output
+// "medium" — names / half-sheet: max 400 × 400 px output
+// "large"  — full A4 sheet: max 800 × 800 px output
+export const STICKER_CATEGORIES = ["small", "medium", "large"] as const;
+export type StickerCategory = (typeof STICKER_CATEGORIES)[number];
+
+/** Max canvas scale for each category when placed on the tee */
+export const CATEGORY_MAX_SCALE: Record<StickerCategory, number> = {
+  small: 0.45,   // ~logo size
+  medium: 0.72,  // ~half-sheet / name
+  large: 1.0,    // full sheet
+};
+/** Default scale when a sticker of this category is first placed */
+export const CATEGORY_DEFAULT_SCALE: Record<StickerCategory, number> = {
+  small: 0.35,
+  medium: 0.55,
+  large: 0.85,
+};
+/** Max pixel dimensions when processing uploaded custom images by category */
+export const CATEGORY_UPLOAD_SIZE: Record<StickerCategory, number> = {
+  small: 200,
+  medium: 400,
+  large: 800,
+};
+
+export function isStickerCategory(value: unknown): value is StickerCategory {
+  return (
+    typeof value === "string" &&
+    (STICKER_CATEGORIES as readonly string[]).includes(value)
+  );
+}
 
 export function isSize(value: unknown): value is Size {
   return typeof value === "string" && (SIZES as readonly string[]).includes(value);
@@ -151,12 +192,60 @@ export function getSticker(id: StickerId): Sticker {
   return STICKER_MAP[id];
 }
 
-export function calcCustomUnitPrice(fit: FitId, stickerIds: readonly string[]): number {
+export function priceForScale(scale: number): number {
+  return scale >= FULL_SCALE_THRESHOLD ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
+}
+
+export function calcCustomUnitPrice(fit: FitId, scales: readonly number[]): number {
   const base = getFit(fit).price;
-  const stickers = stickerIds.reduce((sum, id) => {
-    return sum + (isStickerId(id) ? getSticker(id).price : 0);
-  }, 0);
-  return base + stickers;
+  return scales.reduce((sum, scale) => sum + priceForScale(scale), base);
+}
+
+export type PlacementRef =
+  | { type: "builtin"; id: StickerId }
+  | { type: "image"; id: string };
+
+export function parsePlacementRef(ref: string): PlacementRef | null {
+  if (ref.startsWith("builtin:")) {
+    const id = ref.slice("builtin:".length);
+    return isStickerId(id) ? { type: "builtin", id } : null;
+  }
+  const match = /^\/api\/images\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(
+    ref,
+  );
+  return match ? { type: "image", id: match[1] } : null;
+}
+
+export function imageRef(id: string): string {
+  return `/api/images/${id}`;
+}
+
+const PREVIEW_LAYOUTS: Record<number, { left: number; top: number; size: number }[]> = {
+  0: [],
+  1: [{ left: 50, top: 39, size: 32 }],
+  2: [
+    { left: 39, top: 35, size: 26 },
+    { left: 61, top: 47, size: 26 },
+  ],
+  3: [
+    { left: 50, top: 33, size: 23 },
+    { left: 35, top: 47, size: 22 },
+    { left: 65, top: 47, size: 22 },
+  ],
+};
+
+export function previewPlacements(ids: readonly StickerId[]): StickerPlacement[] {
+  const layout = PREVIEW_LAYOUTS[Math.min(ids.length, 3)] ?? [];
+  return ids.slice(0, 3).map((id, index) => {
+    const spot = layout[index];
+    return {
+      ref: `builtin:${id}`,
+      x: spot.left,
+      y: spot.top,
+      scale: spot.size / BASE_PLACEMENT_SIZE,
+      rotation: 0,
+    };
+  });
 }
 
 export function calcShipping(subtotal: number): number {

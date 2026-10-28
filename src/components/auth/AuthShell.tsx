@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import { CheckCircle2 } from "lucide-react";
 import { TeePreview } from "@/components/tee/TeePreview";
+import { previewPlacements } from "@/lib/catalog";
 import { getDictionary } from "@/lib/lang";
 
 export async function AuthShell({ children }: { children: ReactNode }) {
@@ -31,7 +32,7 @@ export async function AuthShell({ children }: { children: ReactNode }) {
           <div className="relative mx-auto my-8 w-[190px]">
             <TeePreview
               colorId="sand"
-              stickerIds={["sun", "wave", "heart"]}
+              placements={previewPlacements(["sun", "wave", "heart"])}
             />
           </div>
 

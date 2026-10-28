@@ -233,13 +233,14 @@ export async function getLowStockProducts(
 export async function saveProductImage(
   bytes: Buffer,
   mime: string,
+  kind = "product",
 ): Promise<string> {
   const client = await getDb();
   const id = randomUUID();
   await client.execute({
-    sql: `INSERT INTO product_images (id, mime, bytes, created_at)
-          VALUES (?, ?, ?, ?)`,
-    args: [id, mime, bytes, Date.now()],
+    sql: `INSERT INTO product_images (id, mime, bytes, created_at, kind)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [id, mime, bytes, Date.now(), kind],
   });
   return id;
 }
@@ -261,4 +262,14 @@ export async function getProductImage(
       ? Buffer.from(row.bytes)
       : Buffer.from(row.bytes);
   return { mime: row.mime, bytes };
+}
+
+export async function getImageKind(id: string): Promise<string | null> {
+  const client = await getDb();
+  const result = await client.execute({
+    sql: "SELECT kind FROM product_images WHERE id = ?",
+    args: [id],
+  });
+  const row = firstRow<{ kind: string | null }>(result);
+  return row?.kind ?? null;
 }

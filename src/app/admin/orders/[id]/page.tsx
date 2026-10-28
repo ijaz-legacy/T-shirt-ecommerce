@@ -87,7 +87,7 @@ export default async function AdminOrderDetailPage({
                         <div className="flex h-full items-center justify-center p-1">
                           <TeePreview
                             colorId={item.custom.colorId}
-                            stickerIds={item.custom.stickerIds}
+                            placements={item.custom.placements}
                           />
                         </div>
                       ) : item.image ? (

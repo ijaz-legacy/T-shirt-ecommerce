@@ -28,11 +28,23 @@ export interface AdminProduct extends Product {
   updatedAt: number;
 }
 
+export interface StickerPlacement {
+  /** "builtin:<stickerId>" or "/api/images/<imageId>" */
+  ref: string;
+  /** Percent position on the tee canvas, 0–100. */
+  x: number;
+  y: number;
+  /** Size multiplier between MIN_SCALE and MAX_SCALE. */
+  scale: number;
+  /** Degrees between MIN_ROTATION and MAX_ROTATION. */
+  rotation: number;
+}
+
 export interface CustomConfig {
   fit: FitId;
   size: Size;
   colorId: TeeColorId;
-  stickerIds: StickerId[];
+  placements: StickerPlacement[];
 }
 
 export type UserRole = "customer" | "admin";

@@ -10,15 +10,19 @@ import {
   type ReactNode,
 } from "react";
 import {
+  MAX_PLACEMENTS,
   MAX_QTY,
-  MAX_STICKERS,
+  MAX_ROTATION,
+  MAX_SCALE,
+  MIN_ROTATION,
+  MIN_SCALE,
   isFitId,
   isSize,
-  isStickerId,
   isTeeColorId,
+  parsePlacementRef,
 } from "@/lib/catalog";
-import type { CustomConfig } from "@/lib/types";
-import type { FitId, Size, StickerId, TeeColorId } from "@/lib/catalog";
+import type { CustomConfig, StickerPlacement } from "@/lib/types";
+import type { FitId, Size, TeeColorId } from "@/lib/catalog";
 
 export type CartLine =
   | { id: string; kind: "printed"; productSlug: string; size: Size; qty: number }
@@ -51,6 +55,27 @@ function clampQty(value: unknown): number {
   return Math.max(1, Math.min(MAX_QTY, Math.trunc(parsed)));
 }
 
+function isPlacement(value: unknown): value is StickerPlacement {
+  if (!value || typeof value !== "object") return false;
+  const placement = value as Record<string, unknown>;
+  return (
+    typeof placement.ref === "string" &&
+    parsePlacementRef(placement.ref) !== null &&
+    typeof placement.x === "number" &&
+    placement.x >= 0 &&
+    placement.x <= 100 &&
+    typeof placement.y === "number" &&
+    placement.y >= 0 &&
+    placement.y <= 100 &&
+    typeof placement.scale === "number" &&
+    placement.scale >= MIN_SCALE &&
+    placement.scale <= MAX_SCALE &&
+    typeof placement.rotation === "number" &&
+    placement.rotation >= MIN_ROTATION &&
+    placement.rotation <= MAX_ROTATION
+  );
+}
+
 function parseCustomConfig(value: unknown): CustomConfig | null {
   if (!value || typeof value !== "object") return null;
   const config = value as Record<string, unknown>;
@@ -58,11 +83,10 @@ function parseCustomConfig(value: unknown): CustomConfig | null {
     !isFitId(config.fit) ||
     !isSize(config.size) ||
     !isTeeColorId(config.colorId) ||
-    !Array.isArray(config.stickerIds) ||
-    config.stickerIds.length < 1 ||
-    config.stickerIds.length > MAX_STICKERS ||
-    !config.stickerIds.every(isStickerId) ||
-    new Set(config.stickerIds).size !== config.stickerIds.length
+    !Array.isArray(config.placements) ||
+    config.placements.length < 1 ||
+    config.placements.length > MAX_PLACEMENTS ||
+    !config.placements.every(isPlacement)
   ) {
     return null;
   }
@@ -70,7 +94,7 @@ function parseCustomConfig(value: unknown): CustomConfig | null {
     fit: config.fit as FitId,
     size: config.size as Size,
     colorId: config.colorId as TeeColorId,
-    stickerIds: config.stickerIds as StickerId[],
+    placements: config.placements,
   };
 }
 
@@ -123,7 +147,13 @@ function readCart(): CartLine[] {
 }
 
 function configKey(config: CustomConfig): string {
-  return [config.fit, config.size, config.colorId, config.stickerIds.join(",")].join("|");
+  const placements = config.placements
+    .map(
+      (placement) =>
+        `${placement.ref}@${placement.x},${placement.y},${placement.scale},${placement.rotation}`,
+    )
+    .join("|");
+  return [config.fit, config.size, config.colorId, placements].join("|");
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {

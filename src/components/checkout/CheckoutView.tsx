@@ -27,8 +27,8 @@ import {
   getFit,
   getTeeColor,
 } from "@/lib/catalog";
-import type { FitId, Size, StickerId, TeeColorId } from "@/lib/catalog";
-import type { CustomConfig } from "@/lib/types";
+import type { FitId, Size, TeeColorId } from "@/lib/catalog";
+import type { CustomConfig, StickerPlacement } from "@/lib/types";
 import { fill, formatINR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/i18n/dictionary";
 import { cn } from "@/lib/cn";
@@ -75,7 +75,7 @@ type OrderItemPayload =
       fit: FitId;
       size: Size;
       colorId: TeeColorId;
-      stickerIds: StickerId[];
+      placements: StickerPlacement[];
       quantity: number;
     };
 
@@ -138,7 +138,10 @@ export function CheckoutView({
         meta: `${lang === "ta" ? fit.nameTa : fit.nameEn} · ${line.config.size} · ${
           lang === "ta" ? color.nameTa : color.nameEn
         }`,
-        unitPrice: calcCustomUnitPrice(line.config.fit, line.config.stickerIds),
+        unitPrice: calcCustomUnitPrice(
+          line.config.fit,
+          line.config.placements.map((p) => p.scale),
+        ),
         qty: line.qty,
         image: null,
         config: line.config as CustomConfig | null,
@@ -233,7 +236,7 @@ export function CheckoutView({
           fit: line.config.fit,
           size: line.config.size,
           colorId: line.config.colorId,
-          stickerIds: line.config.stickerIds,
+          placements: line.config.placements,
           quantity: line.qty,
         });
       }
@@ -617,7 +620,7 @@ export function CheckoutView({
                       <div className="flex h-full items-center justify-center p-1">
                         <TeePreview
                           colorId={row.config.colorId}
-                          stickerIds={row.config.stickerIds}
+                          placements={row.config.placements}
                         />
                       </div>
                     ) : row.image ? (

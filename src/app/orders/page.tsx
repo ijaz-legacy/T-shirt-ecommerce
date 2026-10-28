@@ -109,7 +109,7 @@ export default async function OrdersPage() {
                             <span className="flex h-full items-center justify-center p-0.5">
                               <TeePreview
                                 colorId={item.custom.colorId}
-                                stickerIds={item.custom.stickerIds}
+                                placements={item.custom.placements}
                               />
                             </span>
                           ) : item.image ? (

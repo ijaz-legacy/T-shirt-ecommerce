@@ -15,7 +15,7 @@ import {
 import { ProductCard } from "@/components/shop/ProductCard";
 import { TeePreview } from "@/components/tee/TeePreview";
 import { buttonClass } from "@/components/ui/button";
-import { FIT_MAP } from "@/lib/catalog";
+import { FIT_MAP, previewPlacements } from "@/lib/catalog";
 import { fill, formatINR } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
 import { getFeaturedProducts } from "@/lib/products";
@@ -116,7 +116,7 @@ export default async function HomePage() {
                     </Link>
                   </div>
                   <div className="w-[76px] shrink-0 sm:w-[88px]">
-                    <TeePreview colorId="cream" stickerIds={["sun", "wave"]} />
+                    <TeePreview colorId="cream" placements={previewPlacements(["sun", "wave"])} />
                   </div>
                 </div>
               </div>
@@ -235,7 +235,7 @@ export default async function HomePage() {
                 </span>
               </div>
               <div className="absolute -bottom-8 -right-8 w-[58%] max-w-[290px] rotate-[4deg] transition duration-500 group-hover:rotate-0 sm:-bottom-10 sm:-right-2">
-                <TeePreview colorId="sand" stickerIds={["sun", "heart", "star"]} />
+                <TeePreview colorId="sand" placements={previewPlacements(["sun", "heart", "star"])} />
               </div>
             </Link>
           </div>
