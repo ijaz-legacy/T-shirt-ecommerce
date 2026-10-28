@@ -63,19 +63,30 @@ export function StickerManager({
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Deduplicate stickers by name as a protective guard
+  const uniqueStickers = useMemo(() => {
+    const seen = new Set<string>();
+    return stickers.filter((s) => {
+      const key = s.nameEn.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [stickers]);
+
   // Counts by category
   const counts = useMemo(() => {
     return {
-      all: stickers.length,
-      small: stickers.filter((s) => s.category === "small").length,
-      medium: stickers.filter((s) => s.category === "medium").length,
-      large: stickers.filter((s) => s.category === "large").length,
+      all: uniqueStickers.length,
+      small: uniqueStickers.filter((s) => s.category === "small").length,
+      medium: uniqueStickers.filter((s) => s.category === "medium").length,
+      large: uniqueStickers.filter((s) => s.category === "large").length,
     };
-  }, [stickers]);
+  }, [uniqueStickers]);
 
   // Filtered list
   const filteredStickers = useMemo(() => {
-    return stickers.filter((s) => {
+    return uniqueStickers.filter((s) => {
       if (activeTab !== "all" && s.category !== activeTab) return false;
       if (statusFilter === "active" && !s.active) return false;
       if (statusFilter === "inactive" && s.active) return false;
@@ -87,7 +98,7 @@ export function StickerManager({
       }
       return true;
     });
-  }, [stickers, activeTab, statusFilter, searchQuery]);
+  }, [uniqueStickers, activeTab, statusFilter, searchQuery]);
 
   function openNew() {
     setEditor({ mode: "new" });

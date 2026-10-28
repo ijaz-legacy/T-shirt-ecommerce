@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { randomUUID } from "node:crypto"; // not available in browser – we'll use Math.random
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -419,12 +419,22 @@ export function CustomStudio() {
     return lang === "ta" ? sticker.nameTa : sticker.nameEn;
   }
 
+  const uniqueCustomStickers = useMemo<ApiSticker[]>(() => {
+    const seen = new Set<string>();
+    return customStickers.filter((s: ApiSticker) => {
+      const key = s.nameEn.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [customStickers]);
+
   const customByCategory: Record<StickerCategory, ApiSticker[]> = {
-    small:  customStickers.filter((s) => s.category === "small"),
-    medium: customStickers.filter((s) => s.category === "medium"),
-    large:  customStickers.filter((s) => s.category === "large"),
+    small:  uniqueCustomStickers.filter((s) => s.category === "small"),
+    medium: uniqueCustomStickers.filter((s) => s.category === "medium"),
+    large:  uniqueCustomStickers.filter((s) => s.category === "large"),
   };
-  const hasCustomStickers = customStickers.length > 0;
+  const hasCustomStickers = uniqueCustomStickers.length > 0;
 
   // ── Render ────────────────────────────────────────────────────────
   return (

@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { STICKERS } from "@/lib/catalog";
 import type { StickerId } from "@/lib/catalog";
 import { firstRow } from "@/lib/db";
@@ -328,28 +328,65 @@ function generateStickerSvg(id: StickerId, fg: string, accent: string, bg: strin
   }
 }
 
+export function deterministicUuid(seed: string): string {
+  const hash = createHash("md5").update(seed).digest("hex");
+  return (
+    hash.slice(0, 8) +
+    "-" +
+    hash.slice(8, 12) +
+    "-4" +
+    hash.slice(13, 16) +
+    "-a" +
+    hash.slice(17, 20) +
+    "-" +
+    hash.slice(20, 32)
+  );
+}
+
+export async function deduplicateStickers(client: Client): Promise<void> {
+  // Remove duplicates keeping the earliest inserted id for each unique name_en
+  await client.execute(`
+    DELETE FROM stickers WHERE id NOT IN (
+      SELECT id FROM stickers GROUP BY LOWER(name_en)
+    )
+  `);
+
+  // Clean up any orphan sticker product_images
+  await client.execute(`
+    DELETE FROM product_images
+    WHERE kind = 'sticker'
+      AND id NOT IN (SELECT image_id FROM stickers)
+  `);
+}
+
 export async function seedStickers(client: Client): Promise<void> {
+  // 1. Deduplicate in case concurrent threads seeded previously
+  await deduplicateStickers(client);
+
   const countRow = await client.execute("SELECT COUNT(*) AS count FROM stickers");
   const count = Number(firstRow<{ count: number }>(countRow)?.count ?? 0);
-  if (count > 0) return;
+  if (count >= STICKERS.length) return;
 
   for (let i = 0; i < STICKERS.length; i++) {
     const s = STICKERS[i];
+    const imageId = deterministicUuid(`image:${s.id}`);
+    const stickerId = deterministicUuid(`sticker:${s.id}`);
     const svg = generateStickerSvg(s.id, s.fg, s.accent, s.bg);
-    const imageId = randomUUID();
-    const stickerId = randomUUID();
     const bytes = Buffer.from(svg, "utf-8");
 
     await client.execute({
-      sql: `INSERT INTO product_images (id, mime, bytes, created_at, kind)
+      sql: `INSERT OR IGNORE INTO product_images (id, mime, bytes, created_at, kind)
             VALUES (?, 'image/svg+xml', ?, ?, 'sticker')`,
       args: [imageId, bytes, Date.now()],
     });
 
     await client.execute({
-      sql: `INSERT INTO stickers (id, name_en, name_ta, image_id, category, active, sort_order, created_at)
+      sql: `INSERT OR IGNORE INTO stickers (id, name_en, name_ta, image_id, category, active, sort_order, created_at)
             VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
       args: [stickerId, s.nameEn, s.nameTa, imageId, s.category, i + 1, Date.now()],
     });
   }
+
+  // Final check to guarantee uniqueness
+  await deduplicateStickers(client);
 }
