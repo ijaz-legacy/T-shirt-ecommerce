@@ -29,22 +29,35 @@ export interface AdminProduct extends Product {
 }
 
 export interface StickerPlacement {
-  /** "builtin:<stickerId>" or "/api/images/<imageId>" */
+  /** "builtin:<stickerId>", "/api/images/<imageId>", or "text:<uuid>" */
   ref: string;
-  /** Percent position on the tee canvas, 0–100. */
+  /** Center X as % of canvas container, 0–100. */
   x: number;
+  /** Center Y as % of canvas container, 0–100. */
   y: number;
-  /** Size multiplier between MIN_SCALE and MAX_SCALE. */
-  scale: number;
-  /** Degrees between MIN_ROTATION and MAX_ROTATION. */
-  rotation: number;
   /**
-   * Optional visual style override set by the customer in StickerStyleEditor.
-   * Stored purely client-side for canvas rendering — not sent to the server.
+   * Width of the element as % of canvas container (8–75).
+   * This is the authoritative sizing; MIN/MAX are enforced in TeeCanvas.
    */
+  scale: number;
+  /** Rotation in degrees (-180 to +180). */
+  rotation: number;
+  /** Visual overrides set by the customer in the editor panel. Client-side only. */
   style?: {
-    bgShape: "none" | "circle" | "rounded" | "square";
+    /** Background shape for stickers. "none" = original sticker bg, "transparent" = no bg for images. */
+    bgShape: "none" | "transparent" | "circle" | "rounded" | "square";
     bgColor: string;
+    /** Sticker theme overrides (built-in SVG stickers only) */
+    fg?: string;
+    accent?: string;
+  };
+  /** Text content — only present when ref starts with "text:" */
+  text?: {
+    content: string;
+    fontFamily: "sans" | "serif" | "display" | "mono";
+    color: string;
+    bold: boolean;
+    italic: boolean;
   };
 }
 

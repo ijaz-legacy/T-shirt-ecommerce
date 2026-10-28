@@ -1,24 +1,22 @@
 "use client";
 
 /**
- * TeeCanvas — PowerPoint-style sticker editor
+ * TeeCanvas — PowerPoint / Canva-style placement editor
  *
- * Each placed sticker is an absolutely-positioned element with:
- *   • Free drag (move anywhere on the shirt)
- *   • Corner resize handles (drag to resize, maintains aspect ratio)
- *   • Rotation handle (drag the top handle to rotate)
- *   • Delete button when selected
+ * Sizing:
+ *   placement.scale = element width as % of the canvas container (8–72).
+ *   Internally we track the container's px width via ResizeObserver so
+ *   stickers are always visibly sized regardless of the container size.
  *
- * Sizing model:
- *   placement.x / placement.y  = center of element as % of container (0–100)
- *   placement.scale             = width of element as % of container (5–80)
- *   placement.rotation          = degrees (-180 to +180)
- *
- * The shirt print area spans roughly x=28%–72%, y=39%–80% of the container.
- * We clamp to that area by default and allow free movement within the full shirt.
+ * Interactions:
+ *   • Drag body    → move
+ *   • Drag corner  → resize (square, aspect-ratio locked)
+ *   • Drag red ◯   → free rotate
+ *   • Click outside → deselect
+ *   • Drag empty shirt area (when allow3DRotate) → 3-D tilt
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { getSticker, parsePlacementRef } from "@/lib/catalog";
 import type { TeeColorId } from "@/lib/catalog";
@@ -29,18 +27,19 @@ import { StickerArt } from "@/components/tee/StickerArt";
 import { cn } from "@/lib/cn";
 
 // ── Constants ──────────────────────────────────────────────────────────
-const MIN_SIZE_PCT = 8;    // minimum element width as % of container
-const MAX_SIZE_PCT = 75;   // maximum element width as % of container
+const MIN_W_PCT = 8;   // % of container — absolute floor
+const MAX_W_PCT = 72;  // % of container — absolute ceiling
+const MIN_W_PX  = 40;  // px — also enforced so stickers are always visible
+
+// 3-D rotation limits
 const ROT_Y_MIN = -40;
 const ROT_Y_MAX = 40;
 const ROT_X_MIN = -20;
 const ROT_X_MAX = 20;
 
-function clamp(v: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, v));
+function clamp(v: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, v));
 }
-
-function deg2rad(d: number) { return (d * Math.PI) / 180; }
 
 // ── Guidelines overlay ─────────────────────────────────────────────────
 function GuidelinesOverlay({ face }: { face: "front" | "back" }) {
@@ -54,7 +53,7 @@ function GuidelinesOverlay({ face }: { face: "front" | "back" }) {
       <div className="absolute h-px bg-rust/25" style={{ left: "28%", top: "59.5%", width: "44%" }} />
       <span className="absolute whitespace-nowrap rounded bg-rust/75 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide text-paper"
         style={{ left: "28%", top: "calc(39% - 17px)" }}>
-        {face === "back" ? "Back print area" : "Front print area"}
+        {face === "back" ? "Back" : "Front"} print area
       </span>
       <span className="absolute whitespace-nowrap rounded bg-gold/70 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide text-ink"
         style={{ left: "32%", top: "calc(42% - 15px)" }}>
@@ -64,34 +63,36 @@ function GuidelinesOverlay({ face }: { face: "front" | "back" }) {
   );
 }
 
-// ── Selection frame with handles ───────────────────────────────────────
-interface HandleProps {
-  cursor: string;
-  style: React.CSSProperties;
-  onPointerDown: (e: ReactPointerEvent<HTMLSpanElement>) => void;
-}
-
-function Handle({ cursor, style, onPointerDown }: HandleProps) {
+// ── Corner/edge resize handle ──────────────────────────────────────────
+function RHandle({
+  top, left, cursor, onDown,
+}: {
+  top: number | string; left: number | string; cursor: string;
+  onDown: (e: ReactPointerEvent<HTMLSpanElement>) => void;
+}) {
   return (
     <span
-      onPointerDown={onPointerDown}
-      className="absolute z-10 block touch-none"
+      onPointerDown={onDown}
       style={{
-        width: 14,
-        height: 14,
+        position: "absolute",
+        top,
+        left,
+        width: 13,
+        height: 13,
         background: "#fff",
         border: "2px solid #171512",
         borderRadius: 3,
         cursor,
         transform: "translate(-50%,-50%)",
-        boxShadow: "0 1px 4px rgba(23,21,18,0.25)",
-        ...style,
+        boxShadow: "0 1px 5px rgba(0,0,0,.28)",
+        zIndex: 30,
+        touchAction: "none",
       }}
     />
   );
 }
 
-// ── Main TeeCanvas component ───────────────────────────────────────────
+// ── TeeCanvas ──────────────────────────────────────────────────────────
 export function TeeCanvas({
   colorId,
   placements,
@@ -119,144 +120,131 @@ export function TeeCanvas({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // active interaction tracking
-  type DragMode = "move" | "resize-br" | "resize-bl" | "resize-tr" | "resize-tl" | "rotate";
-  const dragState = useRef<{
-    mode: DragMode;
+  // Track container px width so stickers always render at visible sizes
+  const [containerW, setContainerW] = useState(310);
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setContainerW(el.offsetWidth || 310);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Active interaction ref ─────────────────────────────────────────
+  type Mode = "move" | "resize" | "rotate";
+  const drag = useRef<{
+    mode: Mode;
     index: number;
-    pointerId: number;
-    startX: number;   // clientX at drag start
-    startY: number;   // clientY at drag start
-    startCx: number;  // element center x% at drag start
-    startCy: number;  // element center y% at drag start
-    startW: number;   // element width% at drag start
-    startRot: number; // element rotation at drag start
-    elemCxPx: number; // element center in px at drag start (for rotation)
-    elemCyPx: number;
+    pid: number;
+    startCx: number; startCy: number;
+    startW: number;
+    startRot: number;
+    startPx: number; startPy: number; // pointer px at start
+    elCxPx: number;  elCyPx: number;  // element center in page-px
   } | null>(null);
 
-  // 3-D rotation
+  // ── 3-D rotation state ─────────────────────────────────────────────
   const [rotY, setRotY] = useState(0);
   const [rotX, setRotX] = useState(0);
   const [spinning, setSpinning] = useState(false);
-  const rotDrag = useRef<{ pointerId: number; startX: number; startY: number; baseY: number; baseX: number } | null>(null);
+  const rotDrag = useRef<{
+    pid: number; sx: number; sy: number; by: number; bx: number;
+  } | null>(null);
 
-  // ── helper: get container rect ────────────────────────────────
-  function getRect() {
-    return containerRef.current?.getBoundingClientRect() ?? null;
-  }
-
-  // ── element pointer down ──────────────────────────────────────
-  function startDrag(
+  // ── Sticker interaction start ──────────────────────────────────────
+  function startInteract(
     e: ReactPointerEvent<HTMLElement>,
     index: number,
-    mode: DragMode,
+    mode: Mode,
   ) {
     e.preventDefault();
     e.stopPropagation();
     onSelect(index);
 
-    const rect = getRect();
+    const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const p = placements[index];
-    const cx = (p.x / 100) * rect.width;
-    const cy = (p.y / 100) * rect.height;
+    const elCxPx = rect.left + (p.x / 100) * rect.width;
+    const elCyPx = rect.top  + (p.y / 100) * rect.height;
 
-    dragState.current = {
-      mode,
-      index,
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      startCx: p.x,
-      startCy: p.y,
-      startW: p.scale,
-      startRot: p.rotation,
-      elemCxPx: rect.left + cx,
-      elemCyPx: rect.top + cy,
+    drag.current = {
+      mode, index, pid: e.pointerId,
+      startCx: p.x, startCy: p.y,
+      startW: p.scale, startRot: p.rotation,
+      startPx: e.clientX, startPy: e.clientY,
+      elCxPx, elCyPx,
     };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
-  // ── global pointer move ───────────────────────────────────────
-  const onPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      const d = dragState.current;
-      if (!d || d.pointerId !== e.pointerId) return;
+  // ── Pointer move (attached to outer container) ─────────────────────
+  const onMove_ = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
 
-      const rect = getRect();
-      if (!rect) return;
-
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
-
-      if (d.mode === "move") {
-        const nx = clamp(d.startCx + (dx / rect.width) * 100, 0, 100);
-        const ny = clamp(d.startCy + (dy / rect.height) * 100, 0, 100);
-        onMove(d.index, Math.round(nx * 10) / 10, Math.round(ny * 10) / 10);
-
-      } else if (d.mode === "rotate") {
-        // angle from element center to current pointer
-        const angle = Math.atan2(
-          e.clientY - d.elemCyPx,
-          e.clientX - d.elemCxPx,
-        );
-        const startAngle = Math.atan2(
-          d.startY - d.elemCyPx,
-          d.startX - d.elemCxPx,
-        );
-        const delta = ((angle - startAngle) * 180) / Math.PI;
-        const newRot = (d.startRot + delta + 360) % 360;
-        // normalise to -180..+180
-        const rot = newRot > 180 ? newRot - 360 : newRot;
-        onRotate?.(d.index, Math.round(rot));
-
-      } else {
-        // resize: treat drag distance as change in half-width
-        // corner dragged determines sign
-        const sign = d.mode === "resize-br" || d.mode === "resize-tr" ? 1 : -1;
-        const dragDist = Math.sqrt(dx * dx + dy * dy) * sign;
-        const pct = (dragDist / rect.width) * 100 * 2; // *2 because we drag from corner
-        const newW = clamp(d.startW + pct, MIN_SIZE_PCT, MAX_SIZE_PCT);
-        onResize?.(d.index, Math.round(newW * 10) / 10);
-      }
-    },
-    [onMove, onResize, onRotate],
-  );
-
-  // ── global pointer up ─────────────────────────────────────────
-  const onPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragState.current?.pointerId === e.pointerId) {
-      dragState.current = null;
+    // 3-D rotation
+    const rd = rotDrag.current;
+    if (rd && rd.pid === e.pointerId && !d) {
+      setRotY(clamp(rd.by + (e.clientX - rd.sx) * 0.4, ROT_Y_MIN, ROT_Y_MAX));
+      setRotX(clamp(rd.bx - (e.clientY - rd.sy) * 0.22, ROT_X_MIN, ROT_X_MAX));
+      return;
     }
-  }, []);
 
-  // ── 3-D rotation handlers (container, only when no sticker drag) ──
-  function onContainerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (dragState.current) return; // sticker drag active
-    if (!allow3DRotate) return;
-    rotDrag.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, baseY: rotY, baseX: rotX };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setSpinning(true);
-  }
+    if (!d || d.pid !== e.pointerId) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return;
 
-  function onContainerMove(e: ReactPointerEvent<HTMLDivElement>) {
-    if (dragState.current) { onPointerMove(e); return; }
-    const d = rotDrag.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    setRotY(clamp(d.baseY + (e.clientX - d.startX) * 0.4, ROT_Y_MIN, ROT_Y_MAX));
-    setRotX(clamp(d.baseX - (e.clientY - d.startY) * 0.22, ROT_X_MIN, ROT_X_MAX));
-  }
+    const dx = e.clientX - d.startPx;
+    const dy = e.clientY - d.startPy;
 
-  function onContainerUp(e: ReactPointerEvent<HTMLDivElement>) {
-    onPointerUp(e);
-    if (rotDrag.current?.pointerId === e.pointerId) {
+    if (d.mode === "move") {
+      onMove(
+        d.index,
+        Math.round(clamp(d.startCx + (dx / rect.width)  * 100, 0, 100) * 10) / 10,
+        Math.round(clamp(d.startCy + (dy / rect.height) * 100, 0, 100) * 10) / 10,
+      );
+    } else if (d.mode === "resize") {
+      // distance dragged → change in width (corner drag = *2 because symmetric)
+      const dist = Math.hypot(dx, dy) * Math.sign(dx + dy);
+      const deltaPct = (dist / rect.width) * 100 * 1.8;
+      const raw = d.startW + deltaPct;
+      // also enforce px floor
+      const pxFloor = (MIN_W_PX / containerW) * 100;
+      const newW = clamp(raw, Math.max(MIN_W_PCT, pxFloor), MAX_W_PCT);
+      onResize?.(d.index, Math.round(newW * 10) / 10);
+    } else if (d.mode === "rotate") {
+      const angle = Math.atan2(e.clientY - d.elCyPx, e.clientX - d.elCxPx);
+      const startAngle = Math.atan2(d.startPy - d.elCyPx, d.startPx - d.elCxPx);
+      let rot = d.startRot + ((angle - startAngle) * 180) / Math.PI;
+      if (rot > 180) rot -= 360;
+      if (rot < -180) rot += 360;
+      onRotate?.(d.index, Math.round(rot));
+    }
+  }, [onMove, onResize, onRotate, containerW]);
+
+  const onUp_ = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pid === e.pointerId) drag.current = null;
+    if (rotDrag.current?.pid === e.pointerId) {
       rotDrag.current = null;
       setSpinning(false);
       setRotY(0);
       setRotX(0);
     }
+  }, []);
+
+  // ── Container down → start 3-D rotation (if no active drag) ───────
+  function onContainerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (drag.current) return;
+    // deselect when clicking empty space
+    onSelect(null);
+    if (!allow3DRotate) return;
+    rotDrag.current = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, by: rotY, bx: rotX };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setSpinning(true);
   }
 
   const Shell = face === "back" ? TeeShapeBack : TeeShape;
@@ -264,59 +252,70 @@ export function TeeCanvas({
   return (
     <div
       ref={containerRef}
-      className={cn("touch-none select-none", allow3DRotate && !dragState.current && "cursor-grab active:cursor-grabbing", className)}
+      className={cn("touch-none select-none", allow3DRotate && "cursor-grab", className)}
       style={{ perspective: allow3DRotate ? "1000px" : undefined }}
       onPointerDown={onContainerDown}
-      onPointerMove={onContainerMove}
-      onPointerUp={onContainerUp}
-      onPointerCancel={onContainerUp}
+      onPointerMove={onMove_}
+      onPointerUp={onUp_}
+      onPointerCancel={onUp_}
     >
-      <div
-        style={
-          allow3DRotate
-            ? {
-                transformStyle: "preserve-3d",
-                transform: `rotateY(${rotY}deg) rotateX(${rotX}deg)`,
-                transition: spinning ? "none" : "transform 0.55s cubic-bezier(0.22,1,0.36,1)",
-                willChange: "transform",
-              }
-            : undefined
-        }
-      >
+      {/* 3-D tilt wrapper */}
+      <div style={allow3DRotate ? {
+        transformStyle: "preserve-3d",
+        transform: `rotateY(${rotY}deg) rotateX(${rotX}deg)`,
+        transition: spinning ? "none" : "transform 0.55s cubic-bezier(0.22,1,0.36,1)",
+        willChange: "transform",
+      } : undefined}>
         <Shell colorId={colorId}>
           {showGuidelines && <GuidelinesOverlay face={face} />}
 
           {placements.map((placement, index) => {
             const parsed = parsePlacementRef(placement.ref);
-            if (!parsed) return null;
+            // handle text placements
+            const isText = placement.ref.startsWith("text:");
+            if (!parsed && !isText) return null;
 
             const selected = index === selectedIndex;
-            // placement.scale = width as % of container
-            const w = clamp(placement.scale, MIN_SIZE_PCT, MAX_SIZE_PCT);
 
-            const outer: React.CSSProperties = {
+            // ── Compute width: use the larger of px-floor and pct value ──
+            const pxFloor = (MIN_W_PX / containerW) * 100;
+            const w = clamp(
+              Math.max(placement.scale, pxFloor),
+              MIN_W_PCT,
+              MAX_W_PCT,
+            );
+
+            const outerStyle: React.CSSProperties = {
               position: "absolute",
               left: `${placement.x}%`,
-              top: `${placement.y}%`,
+              top:  `${placement.y}%`,
               width: `${w}%`,
               aspectRatio: "1",
               transform: `translate(-50%,-50%) rotate(${placement.rotation}deg)`,
               cursor: "grab",
-              // selection outline
-              outline: selected ? "2px solid #171512" : "none",
-              outlineOffset: 3,
+              zIndex: selected ? 20 : 2,
+              // selection outline only — no background here
+              outline: selected ? "2px solid rgba(23,21,18,0.85)" : "none",
+              outlineOffset: 2,
               borderRadius: 4,
-              zIndex: selected ? 10 : 1,
             };
 
-            // style override (bg shape/colour)
+            // ── Style overrides ─────────────────────────────────────────
             const styleOv = placement.style;
-            const hasBg = styleOv && styleOv.bgShape !== "none";
+            const bgShape = styleOv?.bgShape ?? "none";
+            const bgColor = styleOv?.bgColor ?? "#FFFFFF";
+            const isTransparent = bgShape === "none" || bgShape === "transparent";
+
             const innerRadius =
-              !hasBg && parsed.type === "builtin" ? "50%" :
-              hasBg && styleOv.bgShape === "circle" ? "50%" :
-              hasBg && styleOv.bgShape === "rounded" ? "20%" :
-              "0";
+              bgShape === "circle"  ? "50%" :
+              bgShape === "rounded" ? "20%" :
+              bgShape === "square"  ? "4px" :
+              parsed?.type === "builtin" ? "50%" : "4px";
+
+            const innerBg =
+              isTransparent
+                ? (parsed?.type === "builtin" ? getSticker(parsed.id).bg : "transparent")
+                : bgColor;
 
             const innerStyle: React.CSSProperties = {
               width: "100%",
@@ -324,104 +323,150 @@ export function TeeCanvas({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "10%",
+              padding: isTransparent && parsed?.type === "image" ? "0" : "10%",
               borderRadius: innerRadius,
-              backgroundColor:
-                hasBg ? styleOv.bgColor :
-                parsed.type === "builtin" ? getSticker(parsed.id).bg :
-                "transparent",
-              boxShadow: (hasBg || parsed.type === "builtin")
-                ? "inset 0 0 0 2px rgba(255,255,255,0.28), 0 8px 20px -6px rgba(23,21,18,0.3)"
-                : undefined,
+              backgroundColor: innerBg,
+              boxShadow:
+                !isTransparent || parsed?.type === "builtin"
+                  ? "inset 0 0 0 1.5px rgba(255,255,255,0.25), 0 6px 18px -5px rgba(23,21,18,0.28)"
+                  : undefined,
             };
 
-            const handleSize = selected ? 14 : 0;
+            // ── Handles (only when selected) ────────────────────────────
+            const handles = selected ? (
+              <>
+                {/* Rotation handle */}
+                <span
+                  onPointerDown={(e) => { e.stopPropagation(); startInteract(e, index, "rotate"); }}
+                  style={{
+                    position: "absolute",
+                    top: -26, left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 14, height: 14,
+                    background: "#C8542F",
+                    border: "2.5px solid #fff",
+                    borderRadius: "50%",
+                    cursor: "alias",
+                    zIndex: 40,
+                    boxShadow: "0 2px 6px rgba(200,84,47,.45)",
+                    touchAction: "none",
+                  }}
+                />
+                {/* Connector line */}
+                <span style={{
+                  position: "absolute", top: -14, left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 1, height: 14,
+                  background: "rgba(23,21,18,.35)",
+                  pointerEvents: "none",
+                }} />
+                {/* 4 corners */}
+                <RHandle top={0}     left={0}     cursor="nw-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top={0}     left="100%"  cursor="ne-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top="100%" left={0}     cursor="sw-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top="100%" left="100%"  cursor="se-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                {/* 4 edges */}
+                <RHandle top={0}     left="50%"   cursor="n-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top="100%" left="50%"   cursor="s-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top="50%"  left={0}     cursor="w-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+                <RHandle top="50%"  left="100%"  cursor="e-resize"
+                  onDown={(e) => { e.stopPropagation(); startInteract(e, index, "resize"); }} />
+              </>
+            ) : null;
+
+            // ── Text placement ─────────────────────────────────────────
+            if (isText && placement.text) {
+              const t = placement.text;
+              const fontFamily =
+                t.fontFamily === "serif"   ? "'Instrument Serif', Georgia, serif" :
+                t.fontFamily === "display" ? "'Bricolage Grotesque', sans-serif" :
+                t.fontFamily === "mono"    ? "'Courier New', monospace" :
+                "'DM Sans', sans-serif";
+              return (
+                <div
+                  key={`el-${index}`}
+                  style={outerStyle}
+                  onPointerDown={(e) => startInteract(e, index, "move")}
+                  onPointerMove={onMove_}
+                  onPointerUp={onUp_}
+                >
+                  <div style={{
+                    width: "100%", height: "100%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: !isTransparent ? bgColor : "transparent",
+                    borderRadius: innerRadius,
+                  }}>
+                    <span style={{
+                      fontFamily,
+                      color: t.color,
+                      fontWeight: t.bold ? 700 : 400,
+                      fontStyle: t.italic ? "italic" : "normal",
+                      fontSize: "clamp(8px, 18%, 48px)",
+                      textAlign: "center",
+                      lineHeight: 1.2,
+                      padding: "4%",
+                      wordBreak: "break-word",
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      whiteSpace: "pre-wrap",
+                      textShadow: "0 1px 3px rgba(0,0,0,.12)",
+                    }}>
+                      {t.content}
+                    </span>
+                  </div>
+                  {handles}
+                </div>
+              );
+            }
+
+            if (!parsed) return null;
 
             return (
               <div
                 key={`el-${index}`}
-                style={outer}
-                onPointerDown={(e) => startDrag(e, index, "move")}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
+                style={outerStyle}
+                onPointerDown={(e) => startInteract(e, index, "move")}
+                onPointerMove={onMove_}
+                onPointerUp={onUp_}
               >
-                {/* ── Content ─────────────────────────────── */}
                 <div style={innerStyle}>
                   {parsed.type === "image" ? (
                     <img
                       src={placement.ref}
                       alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
+                      style={{
+                        width: "100%", height: "100%",
+                        objectFit: "contain",
+                        pointerEvents: "none",
+                        display: "block",
+                      }}
                       draggable={false}
                     />
                   ) : (
-                    <StickerArt sticker={getSticker(parsed.id)} />
+                    <StickerArt
+                      sticker={getSticker(parsed.id)}
+                      fgOverride={styleOv?.fg}
+                      accentOverride={styleOv?.accent}
+                    />
                   )}
                 </div>
-
-                {/* ── PowerPoint-style handles (visible only when selected) ── */}
-                {selected ? (
-                  <>
-                    {/* Rotation handle — top centre */}
-                    <span
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "rotate"); }}
-                      style={{
-                        position: "absolute",
-                        top: -28,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 14,
-                        height: 14,
-                        background: "#C8542F",
-                        border: "2px solid #fff",
-                        borderRadius: "50%",
-                        cursor: "alias",
-                        zIndex: 20,
-                        boxShadow: "0 1px 4px rgba(23,21,18,0.3)",
-                      }}
-                    />
-                    {/* Line from rotation handle to element */}
-                    <span style={{
-                      position: "absolute",
-                      top: -16,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 1,
-                      height: 16,
-                      background: "rgba(23,21,18,0.3)",
-                      pointerEvents: "none",
-                    }} />
-
-                    {/* Corner resize handles */}
-                    <Handle cursor="nw-resize" style={{ top: 0, left: 0 }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-tl"); }} />
-                    <Handle cursor="ne-resize" style={{ top: 0, left: "100%" }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-tr"); }} />
-                    <Handle cursor="sw-resize" style={{ top: "100%", left: 0 }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-bl"); }} />
-                    <Handle cursor="se-resize" style={{ top: "100%", left: "100%" }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-br"); }} />
-
-                    {/* Edge midpoint handles */}
-                    <Handle cursor="n-resize" style={{ top: 0, left: "50%" }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-tl"); }} />
-                    <Handle cursor="s-resize" style={{ top: "100%", left: "50%" }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-br"); }} />
-                    <Handle cursor="w-resize" style={{ top: "50%", left: 0 }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-bl"); }} />
-                    <Handle cursor="e-resize" style={{ top: "50%", left: "100%" }}
-                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, index, "resize-br"); }} />
-                  </>
-                ) : null}
+                {handles}
               </div>
             );
           })}
         </Shell>
       </div>
 
-      {allow3DRotate && placements.length === 0 && rotY === 0 && (
+      {allow3DRotate && placements.length === 0 && (
         <p className="pointer-events-none absolute bottom-1 left-0 right-0 text-center text-[9px] text-smoke/50">
-          drag to rotate
+          drag shirt to rotate
         </p>
       )}
     </div>

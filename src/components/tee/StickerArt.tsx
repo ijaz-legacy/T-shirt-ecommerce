@@ -3,12 +3,20 @@ import { cn } from "@/lib/cn";
 
 export function StickerArt({
   sticker,
+  fgOverride,
+  accentOverride,
   className,
 }: {
   sticker: Sticker;
+  /** Override the foreground colour */
+  fgOverride?: string;
+  /** Override the accent colour */
+  accentOverride?: string;
   className?: string;
 }) {
-  const { fg, accent, bg } = sticker;
+  const fg = fgOverride ?? sticker.fg;
+  const accent = accentOverride ?? sticker.accent;
+  const bg = sticker.bg; // bg is only used as SVG internal fill in "moon"
   const base = cn("h-full w-full", className);
 
   switch (sticker.id) {

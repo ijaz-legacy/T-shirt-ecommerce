@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { randomUUID } from "node:crypto"; // not available in browser – we'll use Math.random
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,10 +11,9 @@ import {
   FlipHorizontal2,
   Grid3x3,
   Loader2,
-  Pencil,
   ShoppingBag,
   Sparkles,
-  Trash2,
+  Type,
   Upload,
   X,
   Zap,
@@ -23,8 +23,7 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { TeeCanvas } from "@/components/custom/TeeCanvas";
 import { ImageEditor } from "@/components/custom/ImageEditor";
-import { StickerStyleEditor } from "@/components/custom/StickerStyleEditor";
-import type { StickerStyle } from "@/components/custom/StickerStyleEditor";
+import { PlacementEditor } from "@/components/custom/PlacementEditor";
 import { StickerArt } from "@/components/tee/StickerArt";
 import { TeePreview } from "@/components/tee/TeePreview";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
@@ -49,6 +48,8 @@ import { fill, formatINR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/i18n/dictionary";
 import { cn } from "@/lib/cn";
 
+function uid() { return Math.random().toString(36).slice(2); }
+
 type Step = 1 | 2 | 3 | 4;
 
 interface ApiSticker {
@@ -64,13 +65,8 @@ interface SizeCategoryModal {
   pending: boolean;
 }
 
-// State for the sticker-style editor dialog
-interface StickerEditorState {
-  ref: string;
-  category: StickerCategory;
-  // if editing an existing placement, its index
-  existingIndex?: number;
-}
+// State for the sticker-style editor dialog — REMOVED (now inline in PlacementEditor)
+
 
 const DEFAULT_SPOTS = [
   { x: 50, y: 38 },
@@ -123,8 +119,9 @@ export function CustomStudio() {
   const [face, setFace] = useState<"front" | "back">("front");
   const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
   const [sizeModal, setSizeModal] = useState<SizeCategoryModal | null>(null);
-  // Sticker style editor — opens when clicking a sticker in the picker
-  const [stickerEditor, setStickerEditor] = useState<StickerEditorState | null>(null);
+  // text add modal
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [textDraft, setTextDraft] = useState("");
 
   const wizardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -196,13 +193,12 @@ export function CustomStudio() {
   }
 
   // ── Placements ────────────────────────────────────────────────────
-  function addPlacement(ref: string, category: StickerCategory, style?: StickerStyle) {
+  function addPlacement(ref: string, category: StickerCategory) {
     if (placements.length >= MAX_PLACEMENTS) {
       setStepError(fill(t.custom.stickersLimit, { max: MAX_PLACEMENTS }));
       return;
     }
     const spot = DEFAULT_SPOTS[placements.length % DEFAULT_SPOTS.length];
-    // scale = width as % of container. Small=15%, medium=28%, large=45%
     const defaultScalePct =
       category === "small" ? 15 :
       category === "large" ? 45 : 28;
@@ -212,7 +208,6 @@ export function CustomStudio() {
       y: spot.y,
       scale: defaultScalePct,
       rotation: 0,
-      ...(style && style.bgShape !== "none" ? { style: { bgShape: style.bgShape, bgColor: style.bgColor } } : {}),
     };
     setPlacements((c) => [...c, newPlacement]);
     setSelectedIndex(placements.length);
@@ -240,48 +235,43 @@ export function CustomStudio() {
     setSelectedIndex(null);
   }
 
-  // ── Sticker picker click → open style editor ──────────────────────
+  // ── Sticker picker click → direct place (no pre-editor) ──────────
   function handleStickerClick(ref: string, category: StickerCategory) {
-    // If already placed, open editor on existing placement instead
     const existingIndex = placements.findIndex((p) => p.ref === ref);
     if (existingIndex >= 0) {
-      // Remove it (toggle off)
       removePlacement(existingIndex);
       return;
     }
-    // Open style editor before placing
-    setStickerEditor({ ref, category });
+    addPlacement(ref, category);
   }
 
-  function handleStickerEditorConfirm(style: StickerStyle) {
-    if (!stickerEditor) return;
-    setStickerEditor(null);
-    addPlacement(stickerEditor.ref, stickerEditor.category, style);
-  }
-
-  function handleStickerEditorCancel() {
-    setStickerEditor(null);
-  }
-
-  // ── Edit style of an already-placed sticker ───────────────────────
-  function openEditPlacedSticker(index: number) {
-    const p = placements[index];
-    if (!p) return;
-    const parsed = parsePlacementRef(p.ref);
-    if (!parsed) return;
-    setStickerEditor({
-      ref: p.ref,
-      category: "small", // category doesn't matter for editing existing
-      existingIndex: index,
-    });
-  }
-
-  function handleExistingStyleConfirm(style: StickerStyle) {
-    if (!stickerEditor || stickerEditor.existingIndex === undefined) return;
-    updatePlacement(stickerEditor.existingIndex, {
-      style: style.bgShape !== "none" ? { bgShape: style.bgShape, bgColor: style.bgColor } : undefined,
-    });
-    setStickerEditor(null);
+  // ── Add text placement ────────────────────────────────────────────
+  function handleAddText() {
+    if (!textDraft.trim()) return;
+    if (placements.length >= MAX_PLACEMENTS) {
+      setStepError(fill(t.custom.stickersLimit, { max: MAX_PLACEMENTS }));
+      return;
+    }
+    const spot = DEFAULT_SPOTS[placements.length % DEFAULT_SPOTS.length];
+    const newPlacement: StickerPlacement = {
+      ref: `text:${uid()}`,
+      x: spot.x,
+      y: spot.y,
+      scale: 32,
+      rotation: 0,
+      text: {
+        content: textDraft.trim(),
+        fontFamily: "sans",
+        color: "#171512",
+        bold: false,
+        italic: false,
+      },
+    };
+    setPlacements((c) => [...c, newPlacement]);
+    setSelectedIndex(placements.length);
+    setTextDraft("");
+    setShowTextModal(false);
+    setStepError(null);
   }
 
   // ── Image upload flow ─────────────────────────────────────────────
@@ -374,17 +364,41 @@ export function CustomStudio() {
         />
       ) : null}
 
-      {/* Sticker style editor modal */}
-      {stickerEditor ? (
-        <StickerStyleEditor
-          stickerRef={stickerEditor.ref}
-          onConfirm={
-            stickerEditor.existingIndex !== undefined
-              ? handleExistingStyleConfirm
-              : handleStickerEditorConfirm
-          }
-          onCancel={handleStickerEditorCancel}
-        />
+      {/* Add text modal */}
+      {showTextModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add text"
+          className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"
+          onClick={() => setShowTextModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[2rem] border border-line bg-paper p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-base font-bold tracking-tight">Add text to your tee</h3>
+            <p className="mt-0.5 text-[11px] text-smoke">Type something — your name, a word, anything.</p>
+            <textarea
+              rows={3}
+              value={textDraft}
+              onChange={(e) => setTextDraft(e.target.value)}
+              placeholder="e.g. Vijay · Chennai · 2025"
+              autoFocus
+              className="mt-3 w-full resize-none rounded-2xl border border-line bg-shell px-4 py-3 text-[14px] text-ink placeholder:text-smoke/50 focus:border-ink/60 focus:outline-none"
+              maxLength={120}
+              onKeyDown={(e) => { if (e.key === "Enter" && e.metaKey) handleAddText(); }}
+            />
+            <p className="mt-1 text-right text-[10px] text-smoke">{textDraft.length}/120</p>
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowTextModal(false)} className={buttonClass({ variant: "ghost", size: "sm" })}>Cancel</button>
+              <button type="button" onClick={handleAddText} disabled={!textDraft.trim()} className={buttonClass({ size: "sm" })}>
+                <Type size={13} />
+                Add text
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* Size category modal */}
@@ -527,64 +541,20 @@ export function CustomStudio() {
               </p>
             ) : null}
 
-            {/* Selected placement controls */}
-            {step === 3 && selectedPlacement && selectedIndex !== null ? (
-              <div className="mt-4 rounded-2xl border border-line bg-shell/60 p-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-xs font-semibold">
-                    {placementName(selectedPlacement.ref)}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditPlacedSticker(selectedIndex)}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium text-smoke transition hover:bg-shell hover:text-ink"
-                    >
-                      <Pencil size={11} />
-                      Style
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removePlacement(selectedIndex)}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium text-smoke transition hover:bg-rust/5 hover:text-rust"
-                    >
-                      <Trash2 size={12} />
-                      {t.custom.removePlacement}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Size info + fine rotation */}
-                <div className="mt-3 grid grid-cols-2 gap-3 text-[10.5px] text-smoke">
-                  <div>
-                    <p className="font-medium">Size</p>
-                    <p className="mt-0.5 font-semibold text-ink">
-                      {Math.round(selectedPlacement.scale)}% wide
-                      {" · "}
-                      <span className={selectedPlacement.scale >= 40 ? "text-rust" : "text-moss"}>
-                        {selectedPlacement.scale >= 40 ? "Full · ₹100" : "Half · ₹59"}
-                      </span>
-                    </p>
-                    <p className="mt-0.5 text-[9.5px] text-smoke/70">Drag corner handles to resize</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Rotation</p>
-                    <p className="mt-0.5 font-semibold text-ink">{Math.round(selectedPlacement.rotation)}°</p>
-                    <p className="mt-0.5 text-[9.5px] text-smoke/70">Drag the red handle to rotate</p>
-                  </div>
-                </div>
-
-                {/* Fine rotation slider */}
-                <label className="mt-3 block">
-                  <span className="text-[10px] text-smoke">Fine rotation</span>
-                  <input
-                    type="range" min={-180} max={180} step={1}
-                    value={selectedPlacement.rotation}
-                    onChange={(e) => handleRotate(selectedIndex, Number(e.target.value))}
-                    className="mt-1 w-full accent-ink"
-                  />
-                </label>
+            {/* PlacementEditor — shown when a sticker/text is selected */}
+            {step === 3 && selectedIndex !== null && placements[selectedIndex] ? (
+              <div className="mt-3">
+                <PlacementEditor
+                  placement={placements[selectedIndex]}
+                  index={selectedIndex}
+                  onChange={updatePlacement}
+                  onRemove={removePlacement}
+                />
               </div>
+            ) : step === 3 && placements.length > 0 ? (
+              <p className="mt-2 text-center text-[10px] text-smoke/60">
+                Tap a sticker on the shirt to edit it
+              </p>
             ) : null}
 
             <div className="mt-3 flex items-end justify-between border-t border-line pt-3">
@@ -866,6 +836,23 @@ export function CustomStudio() {
                     })}
                   </div>
                 )}
+
+                {/* Add text */}
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-shell/40 px-4 py-3">
+                  <Type size={16} className="shrink-0 text-smoke" />
+                  <div className="flex-1">
+                    <p className="text-[11px] font-semibold text-ink">Add text to your tee</p>
+                    <p className="text-[10px] text-smoke">Names, words, anything you like.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTextModal(true)}
+                    disabled={placements.length >= MAX_PLACEMENTS}
+                    className={buttonClass({ variant: "outline", size: "sm" })}
+                  >
+                    + Add
+                  </button>
+                </div>
 
                 {/* Upload image */}
                 <div className="mt-4 rounded-2xl border border-dashed border-ink/25 bg-shell/40 p-3.5">
