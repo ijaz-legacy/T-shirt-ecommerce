@@ -134,11 +134,12 @@ function isPlacement(value: unknown): value is StickerPlacement {
     placement.y >= 0 &&
     placement.y <= 100 &&
     typeof placement.scale === "number" &&
-    placement.scale >= MIN_SCALE &&
-    placement.scale <= MAX_SCALE &&
+    placement.scale >= 0.01 &&
+    placement.scale <= 100 &&
     typeof placement.rotation === "number" &&
-    placement.rotation >= MIN_ROTATION &&
-    placement.rotation <= MAX_ROTATION
+    placement.rotation >= -360 &&
+    placement.rotation <= 360 &&
+    (placement.face === undefined || placement.face === "front" || placement.face === "back")
   );
 }
 

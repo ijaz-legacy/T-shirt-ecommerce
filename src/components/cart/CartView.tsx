@@ -210,6 +210,7 @@ export function CartView({ products }: { products: Product[] }) {
                 const parsed = parsePlacementRef(p.ref);
                 if (!parsed) return "";
                 if (parsed.type === "image") return t.custom.yourImage;
+                if (parsed.type === "text") return p.text?.content ? `"${p.text.content}"` : "Text";
                 const sticker = getSticker(parsed.id);
                 return lang === "ta" ? sticker.nameTa : sticker.nameEn;
               });
@@ -226,6 +227,7 @@ export function CartView({ products }: { products: Product[] }) {
                       <TeePreview
                         colorId={line.config.colorId}
                         placements={line.config.placements}
+                        face={line.config.placements.some((p) => !p.face || p.face === "front") ? "front" : "back"}
                       />
                     </div>
                   ) : image ? (

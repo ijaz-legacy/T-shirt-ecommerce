@@ -42,6 +42,8 @@ export interface StickerPlacement {
   scale: number;
   /** Rotation in degrees (-180 to +180). */
   rotation: number;
+  /** Which side of the shirt this sticker is placed on: "front" (default) or "back". */
+  face?: "front" | "back";
   /** Visual overrides set by the customer in the editor panel. Client-side only. */
   style?: {
     /** Background shape for stickers. "none" = original sticker bg, "transparent" = no bg for images. */

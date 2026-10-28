@@ -193,14 +193,25 @@ export function PlacementEditor({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onRemove(index)}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-smoke transition hover:bg-rust/8 hover:text-rust"
-        >
-          <Trash2 size={12} />
-          Remove
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChange(index, { face: (placement.face ?? "front") === "front" ? "back" : "front" })}
+            title="Move sticker to the other side of the shirt"
+            className="inline-flex items-center gap-1 rounded-full border border-line bg-shell px-2.5 py-1 text-[10px] font-medium text-ink transition hover:border-ink/40"
+          >
+            <span>{(placement.face ?? "front") === "back" ? "Back" : "Front"}</span>
+            <span className="text-[9px] text-smoke">⇄ Flip</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-smoke transition hover:bg-rust/8 hover:text-rust"
+          >
+            <Trash2 size={12} />
+            Remove
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 space-y-4">

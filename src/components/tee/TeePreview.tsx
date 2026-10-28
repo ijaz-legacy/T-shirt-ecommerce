@@ -2,6 +2,7 @@ import { getSticker, parsePlacementRef } from "@/lib/catalog";
 import type { TeeColorId } from "@/lib/catalog";
 import type { StickerPlacement } from "@/lib/types";
 import { TeeShape } from "@/components/tee/TeeShape";
+import { TeeShapeBack } from "@/components/tee/TeeShapeBack";
 import { StickerArt } from "@/components/tee/StickerArt";
 
 const MIN_SIZE = 8;
@@ -10,16 +11,21 @@ const MAX_SIZE = 75;
 export function TeePreview({
   colorId,
   placements,
+  face = "front",
   className,
 }: {
   colorId: TeeColorId;
   placements: StickerPlacement[];
+  face?: "front" | "back";
   className?: string;
 }) {
-  const elements = placements.slice(0, 3);
+  const elements = placements.filter((p) =>
+    face === "back" ? p.face === "back" : !p.face || p.face === "front",
+  );
+  const Shell = face === "back" ? TeeShapeBack : TeeShape;
 
   return (
-    <TeeShape colorId={colorId} className={className}>
+    <Shell colorId={colorId} className={className}>
       {elements.map((placement, index) => {
         const parsed = parsePlacementRef(placement.ref);
         const isText = placement.ref.startsWith("text:");
@@ -35,7 +41,7 @@ export function TeePreview({
           transform: `translate(-50%,-50%) rotate(${placement.rotation}deg)`,
           pointerEvents: "none",
         };
-        const key = `${placement.ref}-${index}`;
+        const key = `${placement.ref}-${placement.face ?? "front"}-${index}`;
 
         // ── Text placement ─────────────────────────────────────────────
         if (isText && placement.text) {
@@ -86,48 +92,51 @@ export function TeePreview({
             );
           }
           return (
-            <img key={key} src={placement.ref} alt=""
-              className="absolute animate-pop-in object-contain aspect-square"
-              style={base} draggable={false} />
+            <div key={key} style={base}>
+              <img src={placement.ref} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
+            </div>
           );
         }
 
         // ── Built-in sticker ───────────────────────────────────────────
-        const sticker = getSticker(parsed.id);
-        const styleOv = placement.style;
-        const bgShape = styleOv?.bgShape;
-        const hasShapedBg = bgShape && bgShape !== "transparent" && bgShape !== "none";
-        const bgColor = hasShapedBg ? (styleOv?.bgColor ?? sticker.bg) : "transparent";
-        const borderRadius =
-          bgShape === "circle"  ? "50%" :
-          bgShape === "rounded" ? "20%" :
-          bgShape === "square"  ? "4px" : "4px";
-        const isFullyTransparent = !hasShapedBg;
+        if (parsed.type === "builtin") {
+          const sticker = getSticker(parsed.id);
+          const styleOv = placement.style;
+          const bgShape = styleOv?.bgShape;
+          const hasShapedBg = bgShape && bgShape !== "transparent" && bgShape !== "none";
+          const bgColor = hasShapedBg ? (styleOv?.bgColor ?? sticker.bg) : "transparent";
+          const borderRadius =
+            bgShape === "circle"  ? "50%" :
+            bgShape === "rounded" ? "20%" :
+            bgShape === "square"  ? "4px" : "4px";
+          const isFullyTransparent = !hasShapedBg;
 
-        return (
-          <div
-            key={key}
-            className="absolute animate-pop-in"
-            style={{
-              ...base,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: bgColor,
-              borderRadius,
-              padding: isFullyTransparent ? "0" : "10%",
-              boxShadow: isFullyTransparent ? undefined
-                : "inset 0 0 0 1.5px rgba(255,255,255,.25), 0 6px 18px -5px rgba(23,21,18,.28)",
-            }}
-          >
-            <StickerArt
-              sticker={sticker}
-              fgOverride={styleOv?.fg}
-              accentOverride={styleOv?.accent}
-            />
-          </div>
-        );
+          return (
+            <div
+              key={key}
+              style={{
+                ...base,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: bgColor,
+                borderRadius,
+                padding: isFullyTransparent ? "0" : "10%",
+                boxShadow: isFullyTransparent ? undefined
+                  : "inset 0 0 0 1.5px rgba(255,255,255,.25), 0 6px 18px -5px rgba(23,21,18,.28)",
+              }}
+            >
+              <StickerArt
+                sticker={sticker}
+                fgOverride={styleOv?.fg}
+                accentOverride={styleOv?.accent}
+              />
+            </div>
+          );
+        }
+
+        return null;
       })}
-    </TeeShape>
+    </Shell>
   );
 }

@@ -117,7 +117,7 @@ export const STICKER_MAP: Record<StickerId, Sticker> = Object.fromEntries(
   STICKERS.map((sticker) => [sticker.id, sticker]),
 ) as Record<StickerId, Sticker>;
 
-export const MAX_PLACEMENTS = 3;
+export const MAX_PLACEMENTS = 10;
 export const MAX_QTY = 10;
 export const FREE_SHIPPING_THRESHOLD = 999;
 export const SHIPPING_FEE = 49;
@@ -125,10 +125,10 @@ export const SHIPPING_FEE = 49;
 export const CUSTOM_PRICE_HALF = 59;
 export const CUSTOM_PRICE_FULL = 100;
 export const FULL_SCALE_THRESHOLD = 0.6;
-export const MIN_SCALE = 0.3;
-export const MAX_SCALE = 1;
-export const MIN_ROTATION = -45;
-export const MAX_ROTATION = 45;
+export const MIN_SCALE = 0.05;
+export const MAX_SCALE = 100;
+export const MIN_ROTATION = -180;
+export const MAX_ROTATION = 180;
 export const BASE_PLACEMENT_SIZE = 32;
 
 // ── Sticker size categories ───────────────────────────────────────────
@@ -193,6 +193,9 @@ export function getSticker(id: StickerId): Sticker {
 }
 
 export function priceForScale(scale: number): number {
+  if (scale > 1) {
+    return scale >= 40 ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
+  }
   return scale >= FULL_SCALE_THRESHOLD ? CUSTOM_PRICE_FULL : CUSTOM_PRICE_HALF;
 }
 
@@ -203,12 +206,17 @@ export function calcCustomUnitPrice(fit: FitId, scales: readonly number[]): numb
 
 export type PlacementRef =
   | { type: "builtin"; id: StickerId }
-  | { type: "image"; id: string };
+  | { type: "image"; id: string }
+  | { type: "text"; id: string };
 
 export function parsePlacementRef(ref: string): PlacementRef | null {
   if (ref.startsWith("builtin:")) {
     const id = ref.slice("builtin:".length);
     return isStickerId(id) ? { type: "builtin", id } : null;
+  }
+  if (ref.startsWith("text:")) {
+    const id = ref.slice("text:".length);
+    return { type: "text", id };
   }
   const match = /^\/api\/images\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(
     ref,

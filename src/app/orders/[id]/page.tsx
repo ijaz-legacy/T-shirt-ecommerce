@@ -123,6 +123,7 @@ export default async function OrderDetailPage({
                     const parsed = parsePlacementRef(placement.ref);
                     if (!parsed) return "";
                     if (parsed.type === "image") return t.custom.yourImage;
+                    if (parsed.type === "text") return placement.text?.content ? `"${placement.text.content}"` : "Text";
                     const sticker = getSticker(parsed.id);
                     return lang === "ta" ? sticker.nameTa : sticker.nameEn;
                   }) ?? [];
@@ -135,6 +136,7 @@ export default async function OrderDetailPage({
                           <TeePreview
                             colorId={item.custom.colorId}
                             placements={item.custom.placements}
+                            face={item.custom.placements.some((p) => !p.face || p.face === "front") ? "front" : "back"}
                           />
                         </div>
                       ) : item.image ? (

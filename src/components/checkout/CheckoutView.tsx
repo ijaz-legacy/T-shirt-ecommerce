@@ -621,6 +621,7 @@ export function CheckoutView({
                         <TeePreview
                           colorId={row.config.colorId}
                           placements={row.config.placements}
+                          face={row.config.placements.some((p) => !p.face || p.face === "front") ? "front" : "back"}
                         />
                       </div>
                     ) : row.image ? (

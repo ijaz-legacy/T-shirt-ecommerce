@@ -88,6 +88,7 @@ export default async function AdminOrderDetailPage({
                           <TeePreview
                             colorId={item.custom.colorId}
                             placements={item.custom.placements}
+                            face={item.custom.placements.some((p) => !p.face || p.face === "front") ? "front" : "back"}
                           />
                         </div>
                       ) : item.image ? (

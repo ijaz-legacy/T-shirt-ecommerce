@@ -270,6 +270,10 @@ export function TeeCanvas({
           {showGuidelines && <GuidelinesOverlay face={face} />}
 
           {placements.map((placement, index) => {
+            // Only show stickers on their matching face (front vs back)
+            const placementFace = placement.face ?? "front";
+            if (placementFace !== face) return null;
+
             const parsed = parsePlacementRef(placement.ref);
             // handle text placements
             const isText = placement.ref.startsWith("text:");
@@ -449,13 +453,13 @@ export function TeeCanvas({
                       }}
                       draggable={false}
                     />
-                  ) : (
+                  ) : parsed.type === "builtin" ? (
                     <StickerArt
                       sticker={getSticker(parsed.id)}
                       fgOverride={styleOv?.fg}
                       accentOverride={styleOv?.accent}
                     />
-                  )}
+                  ) : null}
                 </div>
                 {handles}
               </div>

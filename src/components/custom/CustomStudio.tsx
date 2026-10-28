@@ -74,6 +74,13 @@ const DEFAULT_SPOTS = [
   { x: 50, y: 38 },
   { x: 37, y: 52 },
   { x: 63, y: 52 },
+  { x: 50, y: 64 },
+  { x: 33, y: 38 },
+  { x: 67, y: 38 },
+  { x: 50, y: 26 },
+  { x: 38, y: 64 },
+  { x: 62, y: 64 },
+  { x: 50, y: 50 },
 ];
 
 const UPLOAD_ACCEPT = "image/png,image/jpeg,image/webp,image/avif";
@@ -201,7 +208,8 @@ export function CustomStudio() {
       setStepError(fill(t.custom.stickersLimit, { max: MAX_PLACEMENTS }));
       return;
     }
-    const spot = DEFAULT_SPOTS[placements.length % DEFAULT_SPOTS.length];
+    const sameFaceCount = placements.filter((p) => (p.face ?? "front") === face).length;
+    const spot = DEFAULT_SPOTS[sameFaceCount % DEFAULT_SPOTS.length];
     const defaultScalePct =
       category === "small" ? 15 :
       category === "large" ? 45 : 28;
@@ -211,6 +219,7 @@ export function CustomStudio() {
       y: spot.y,
       scale: defaultScalePct,
       rotation: 0,
+      face,
     };
     setPlacements((c) => [...c, newPlacement]);
     setSelectedIndex(placements.length);
@@ -218,6 +227,9 @@ export function CustomStudio() {
   }
 
   function updatePlacement(index: number, patch: Partial<StickerPlacement>) {
+    if (patch.face) {
+      setFace(patch.face);
+    }
     setPlacements((c) => c.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   }
 
@@ -240,7 +252,9 @@ export function CustomStudio() {
 
   // ── Sticker picker click → direct place (no pre-editor) ──────────
   function handleStickerClick(ref: string, category: StickerCategory) {
-    const existingIndex = placements.findIndex((p) => p.ref === ref);
+    const existingIndex = placements.findIndex(
+      (p) => p.ref === ref && (p.face ?? "front") === face,
+    );
     if (existingIndex >= 0) {
       removePlacement(existingIndex);
       return;
@@ -255,13 +269,15 @@ export function CustomStudio() {
       setStepError(fill(t.custom.stickersLimit, { max: MAX_PLACEMENTS }));
       return;
     }
-    const spot = DEFAULT_SPOTS[placements.length % DEFAULT_SPOTS.length];
+    const sameFaceCount = placements.filter((p) => (p.face ?? "front") === face).length;
+    const spot = DEFAULT_SPOTS[sameFaceCount % DEFAULT_SPOTS.length];
     const newPlacement: StickerPlacement = {
       ref: `text:${uid()}`,
       x: spot.x,
       y: spot.y,
       scale: 32,
       rotation: 0,
+      face,
       text: {
         content: textDraft.trim(),
         fontFamily: "sans",
@@ -390,10 +406,14 @@ export function CustomStudio() {
     router.push("/checkout");
   }
 
-  function placementName(ref: string): string {
+  function placementName(ref: string, placement?: StickerPlacement): string {
     const parsed = parsePlacementRef(ref);
     if (!parsed) return "";
     if (parsed.type === "image") return t.custom.yourImage;
+    if (parsed.type === "text") {
+      const content = placement?.text?.content || "";
+      return content ? `"${content.slice(0, 15)}"` : "Text";
+    }
     const sticker = getSticker(parsed.id);
     return lang === "ta" ? sticker.nameTa : sticker.nameEn;
   }
@@ -624,41 +644,72 @@ export function CustomStudio() {
                   allow3DRotate
                 />
               ) : (
-                <TeePreview colorId={colorId} placements={placements} />
+                <TeePreview colorId={colorId} placements={placements} face={face} />
               )}
             </div>
 
-            {/* Chips summary */}
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-              <span className="chip px-2.5 py-1 text-[10px]">{fitName}</span>
-              {size && <span className="chip px-2.5 py-1 text-[10px]">{size}</span>}
-              <span className="chip gap-1 px-2.5 py-1 text-[10px]">
+            {/* Interactive chips summary */}
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5" role="toolbar" aria-label="Selected configuration">
+              <button
+                type="button"
+                onClick={() => goToStep(1)}
+                title="Change fit (Step 1)"
+                className="chip group cursor-pointer px-2.5 py-1 text-[10px] transition-all hover:border-ink hover:bg-shell active:scale-95"
+              >
+                <span>{fitName}</span>
+                <span className="ml-1 text-[9px] text-smoke opacity-60 group-hover:opacity-100">✎</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => goToStep(1)}
+                title="Change size (Step 1)"
+                className="chip group cursor-pointer px-2.5 py-1 text-[10px] transition-all hover:border-ink hover:bg-shell active:scale-95"
+              >
+                <span>{size ?? "Size"}</span>
+                <span className="ml-1 text-[9px] text-smoke opacity-60 group-hover:opacity-100">✎</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => goToStep(2)}
+                title="Change colour (Step 2)"
+                className="chip group cursor-pointer gap-1 px-2.5 py-1 text-[10px] transition-all hover:border-ink hover:bg-shell active:scale-95"
+              >
                 <span className="h-2.5 w-2.5 rounded-full border border-ink/10" style={{ backgroundColor: color.hex }} />
-                {colorName}
-              </span>
-              {placements.length > 0 && (
-                <span className="chip px-2.5 py-1 text-[10px]">
+                <span>{colorName}</span>
+                <span className="ml-0.5 text-[9px] text-smoke opacity-60 group-hover:opacity-100">✎</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => goToStep(3)}
+                title="Edit stickers (Step 3)"
+                className="chip group cursor-pointer px-2.5 py-1 text-[10px] transition-all hover:border-ink hover:bg-shell active:scale-95"
+              >
+                <span>
                   {fill(t.custom.stickersSelected, { count: placements.length, max: MAX_PLACEMENTS })}
                 </span>
-              )}
+                <span className="ml-1 text-[9px] text-smoke opacity-60 group-hover:opacity-100">✎</span>
+              </button>
             </div>
 
-            {/* Step 3 canvas controls */}
-            {step === 3 ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFace((f) => (f === "front" ? "back" : "front"))}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-[11px] font-medium text-smoke transition hover:border-ink/40 hover:text-ink"
-                >
-                  <FlipHorizontal2 size={13} />
-                  {face === "front" ? "View back" : "View front"}
-                </button>
+            {/* Shirt view & canvas controls */}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFace((f) => (f === "front" ? "back" : "front"));
+                  setSelectedIndex(null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-[11px] font-medium text-smoke transition hover:border-ink/40 hover:text-ink shadow-xs"
+              >
+                <FlipHorizontal2 size={13} />
+                {face === "front" ? "View back" : "View front"}
+              </button>
+              {step === 3 && (
                 <button
                   type="button"
                   onClick={() => setShowGuidelines((g) => !g)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition shadow-xs",
                     showGuidelines
                       ? "border-rust/60 bg-rust/10 text-rust"
                       : "border-line bg-paper text-smoke hover:border-ink/40 hover:text-ink",
@@ -667,8 +718,8 @@ export function CustomStudio() {
                   <Grid3x3 size={13} />
                   {showGuidelines ? "Hide guides" : "Show guides"}
                 </button>
-              </div>
-            ) : null}
+              )}
+            </div>
 
             {/* Step 3 hint */}
             {step === 3 ? (
@@ -887,7 +938,7 @@ export function CustomStudio() {
                 <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5">
                   {STICKERS.map((sticker) => {
                     const ref = `builtin:${sticker.id}`;
-                    const isPlaced = placements.some((p) => p.ref === ref);
+                    const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
                     const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
                     return (
                       <button
@@ -939,7 +990,7 @@ export function CustomStudio() {
                           <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5">
                             {items.map((sticker) => {
                               const ref = sticker.image;
-                              const isPlaced = placements.some((p) => p.ref === ref);
+                              const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
                               const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
                               return (
                                 <button
@@ -1076,7 +1127,10 @@ export function CustomStudio() {
                                   <StickerArt sticker={getSticker(parsed.id)} />
                                 </span>
                               ) : null}
-                              {placementName(placement.ref)}
+                              {placementName(placement.ref, placement)}
+                              <span className="rounded bg-shell px-1 py-0.2 text-[8.5px] uppercase font-semibold text-smoke">
+                                {(placement.face ?? "front") === "back" ? "Back" : "Front"}
+                              </span>
                               <span className="text-[9.5px] text-smoke">
                                 {placement.scale >= 40 ? "₹100" : "₹59"}
                               </span>

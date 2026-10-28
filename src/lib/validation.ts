@@ -59,8 +59,26 @@ const placementSchema = z.object({
     .refine((value) => parsePlacementRef(value) !== null, "invalid_ref"),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
-  scale: z.number().min(MIN_SCALE).max(MAX_SCALE),
-  rotation: z.number().min(MIN_ROTATION).max(MAX_ROTATION),
+  scale: z.number().min(0.01).max(100),
+  rotation: z.number().min(-360).max(360),
+  face: z.enum(["front", "back"]).optional(),
+  style: z
+    .object({
+      bgShape: z.enum(["none", "transparent", "circle", "rounded", "square"]).optional(),
+      bgColor: z.string().optional(),
+      fg: z.string().optional(),
+      accent: z.string().optional(),
+    })
+    .optional(),
+  text: z
+    .object({
+      content: z.string().max(200),
+      fontFamily: z.enum(["sans", "serif", "display", "mono"]).optional(),
+      color: z.string().optional(),
+      bold: z.boolean().optional(),
+      italic: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const customItemSchema = z.object({
