@@ -12,6 +12,7 @@
     "create-admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@libsql/client": "^0.18.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",

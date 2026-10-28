@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  FlipHorizontal2,
+  Grid3x3,
   Loader2,
   ShoppingBag,
   Sparkles,
@@ -21,6 +23,7 @@ import { useCart } from "@/components/providers/CartProvider";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { TeeCanvas } from "@/components/custom/TeeCanvas";
+import { ImageEditor } from "@/components/custom/ImageEditor";
 import { StickerArt } from "@/components/tee/StickerArt";
 import { TeePreview } from "@/components/tee/TeePreview";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
@@ -115,6 +118,10 @@ export function CustomStudio() {
   const [uploading, setUploading] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [sizeModal, setSizeModal] = useState<SizeCategoryModal | null>(null);
+  // ── New: guidelines, face flip, image editor ─────────────────────
+  const [showGuidelines, setShowGuidelines] = useState(false);
+  const [face, setFace] = useState<"front" | "back">("front");
+  const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
 
   const wizardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,9 +240,21 @@ export function CustomStudio() {
     setSelectedIndex(null);
   }
 
-  // ── Image upload: ask for size category first ─────────────────────
+  // ── Image upload: open editor first, then size modal ─────────────
   function handleFileSelected(file: File) {
-    setSizeModal({ file, pending: false });
+    setImageEditorFile(file);
+  }
+
+  function handleEditorSave(blob: Blob, fileName: string) {
+    const editedFile = new File([blob], fileName, { type: "image/png" });
+    setImageEditorFile(null);
+    // Now ask for size category before uploading
+    setSizeModal({ file: editedFile, pending: false });
+  }
+
+  function handleEditorCancel() {
+    setImageEditorFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleUploadWithCategory(file: File, category: StickerCategory) {
@@ -315,6 +334,15 @@ export function CustomStudio() {
 
   return (
     <>
+      {/* ── Image editor modal ───────────────────────────────────────── */}
+      {imageEditorFile ? (
+        <ImageEditor
+          file={imageEditorFile}
+          onSave={handleEditorSave}
+          onCancel={handleEditorCancel}
+        />
+      ) : null}
+
       {/* ── Image size category modal ─────────────────────────────────── */}
       {sizeModal ? (
         <div
@@ -423,6 +451,8 @@ export function CustomStudio() {
                       selectedIndex={selectedIndex}
                       onSelect={setSelectedIndex}
                       onMove={handleMove}
+                      face={face}
+                      showGuidelines={showGuidelines}
                     />
                   </div>
                 ) : (
@@ -462,7 +492,9 @@ export function CustomStudio() {
                 </div>
 
                 <p className="mt-2.5 text-[11px] leading-relaxed text-smoke">
-                  {step === 3 ? t.custom.dragHint : t.custom.previewNote}
+                  {step === 3
+                    ? "Drag stickers anywhere on the tee. Use guides to check the print area, flip to view the back."
+                    : t.custom.previewNote}
                 </p>
 
                 <div className="mt-3 flex items-end justify-between border-t border-line pt-3">
@@ -476,7 +508,36 @@ export function CustomStudio() {
 
             {/* Zoom / 3D toggle — step 3 only */}
             {step === 3 ? (
-              <div className="mt-3 flex items-center justify-center">
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {/* Front / Back flip */}
+                <button
+                  type="button"
+                  onClick={() => setFace((f) => (f === "front" ? "back" : "front"))}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+                    "border-line bg-paper text-smoke hover:border-ink/40 hover:text-ink",
+                  )}
+                >
+                  <FlipHorizontal2 size={13} />
+                  {face === "front" ? "View back" : "View front"}
+                </button>
+
+                {/* Guidelines toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowGuidelines((g) => !g)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+                    showGuidelines
+                      ? "border-rust/60 bg-rust/10 text-rust"
+                      : "border-line bg-paper text-smoke hover:border-ink/40 hover:text-ink",
+                  )}
+                >
+                  <Grid3x3 size={13} />
+                  {showGuidelines ? "Hide guides" : "Show guides"}
+                </button>
+
+                {/* Zoom / 3D */}
                 <button
                   type="button"
                   onClick={() => setZoomed((z) => !z)}
@@ -495,7 +556,7 @@ export function CustomStudio() {
                   ) : (
                     <>
                       <ZoomIn size={13} />
-                      Zoom &amp; 3D — easier to place stickers
+                      Zoom &amp; 3D
                     </>
                   )}
                 </button>
@@ -928,8 +989,8 @@ export function CustomStudio() {
                           {uploading ? t.custom.uploading : t.custom.uploadLabel}
                         </button>
                         <p className="mt-2 text-[10.5px] leading-relaxed text-smoke">
-                          {t.custom.uploadHint} After selecting, you&apos;ll choose the
-                          print size: small, medium or full sheet.
+                          {t.custom.uploadHint} You can remove the background,
+                          add a colour/shape, and adjust brightness before placing it.
                         </p>
                       </div>
                     ) : (
