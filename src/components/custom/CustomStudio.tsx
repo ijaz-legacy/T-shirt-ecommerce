@@ -278,7 +278,40 @@ export function CustomStudio() {
   }
 
   // ── Image upload flow ─────────────────────────────────────────────
-  function handleFileSelected(file: File) {
+  async function checkImageHasTransparency(file: File): Promise<boolean> {
+    if (!file.type.includes("png") && !file.type.includes("webp") && !file.type.includes("gif") && !file.type.includes("svg")) {
+      return false;
+    }
+    try {
+      const bmp = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      const w = Math.min(128, bmp.width);
+      const h = Math.min(128, bmp.height);
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return false;
+      ctx.drawImage(bmp, 0, 0, w, h);
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] < 240) {
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleFileSelected(file: File) {
+    const isTransparent = await checkImageHasTransparency(file);
+    if (isTransparent) {
+      // Image already has a transparent background — directly add as a transparent sticker without extra steps
+      setSizeModal({ file, pending: false });
+      return;
+    }
     setUploadModeFile(file);
   }
 
