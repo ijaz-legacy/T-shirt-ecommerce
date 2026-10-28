@@ -38,6 +38,14 @@ export interface StickerPlacement {
   scale: number;
   /** Degrees between MIN_ROTATION and MAX_ROTATION. */
   rotation: number;
+  /**
+   * Optional visual style override set by the customer in StickerStyleEditor.
+   * Stored purely client-side for canvas rendering — not sent to the server.
+   */
+  style?: {
+    bgShape: "none" | "circle" | "rounded" | "square";
+    bgColor: string;
+  };
 }
 
 export interface CustomConfig {

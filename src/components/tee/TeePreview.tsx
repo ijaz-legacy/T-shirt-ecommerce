@@ -43,13 +43,28 @@ export function TeePreview({
         }
 
         const sticker = getSticker(parsed.id);
+        const style_ = placement.style;
+        const hasBg = style_ && style_.bgShape !== "none";
+        const bgStyle: React.CSSProperties = hasBg
+          ? {
+              backgroundColor: style_.bgColor,
+              borderRadius:
+                style_.bgShape === "circle" ? "50%" :
+                style_.bgShape === "rounded" ? "22%" :
+                "0",
+            }
+          : {
+              backgroundColor: sticker.bg,
+              borderRadius: "50%",
+            };
+
         return (
           <div
             key={key}
-            className="pointer-events-none absolute flex aspect-square animate-pop-in items-center justify-center rounded-full p-[8%] transition-[left,top,width] duration-300 ease-out"
+            className="pointer-events-none absolute flex aspect-square animate-pop-in items-center justify-center p-[8%] transition-[left,top,width] duration-300 ease-out"
             style={{
               ...style,
-              backgroundColor: sticker.bg,
+              ...bgStyle,
               boxShadow:
                 "inset 0 0 0 2px rgba(255,255,255,0.32), 0 10px 18px -8px rgba(23,21,18,0.35)",
             }}
