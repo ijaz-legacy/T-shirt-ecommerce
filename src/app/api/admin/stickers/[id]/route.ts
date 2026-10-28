@@ -13,6 +13,7 @@ const ACCEPTED_TYPES = new Set([
   "image/webp",
   "image/avif",
   "image/jpeg",
+  "image/svg+xml",
 ]);
 
 const patchFormSchema = z.object({
@@ -23,7 +24,20 @@ const patchFormSchema = z.object({
   category: z.enum(["small", "medium", "large"]).default("small"),
 });
 
-async function processStickerImage(file: File, category?: string): Promise<Buffer | null> {
+async function processStickerImage(
+  file: File,
+  category?: string,
+): Promise<{ buffer: Buffer; mime: string } | null> {
+  if (file.type === "image/svg+xml") {
+    try {
+      const text = await file.text();
+      if (!text.toLowerCase().includes("<svg")) return null;
+      return { buffer: Buffer.from(text, "utf-8"), mime: "image/svg+xml" };
+    } catch {
+      return null;
+    }
+  }
+
   const maxSize = isStickerCategory(category)
     ? CATEGORY_UPLOAD_SIZE[category]
     : 800;
@@ -41,7 +55,9 @@ async function processStickerImage(file: File, category?: string): Promise<Buffe
       })
       .webp({ quality: 90, alphaQuality: 95 })
       .toBuffer({ resolveWithObject: true });
-    return result.info.format === "webp" ? result.data : null;
+    return result.info.format === "webp"
+      ? { buffer: result.data, mime: "image/webp" }
+      : null;
   } catch (error) {
     console.warn("Rejected sticker image upload", error);
     return null;
@@ -82,22 +98,22 @@ export async function PATCH(
     });
     if (!input.success) return apiError("INVALID_INPUT", 400);
 
-    let imageBytes: Buffer | null = null;
+    let processed: { buffer: Buffer; mime: string } | null = null;
     const file = form.get("file");
     if (file instanceof File && file.size > 0) {
       if (file.size > MAX_BYTES) return apiError("FILE_TOO_LARGE", 413);
       if (!ACCEPTED_TYPES.has(file.type)) {
         return apiError("UNSUPPORTED_IMAGE", 415);
       }
-      imageBytes = await processStickerImage(file, input.data.category);
-      if (!imageBytes) return apiError("INVALID_IMAGE", 400);
+      processed = await processStickerImage(file, input.data.category);
+      if (!processed) return apiError("INVALID_IMAGE", 400);
     }
 
     const sticker = await updateSticker(
       parsedId.data,
       input.data,
-      imageBytes,
-      "image/webp",
+      processed ? processed.buffer : null,
+      processed ? processed.mime : "image/webp",
     );
     if (!sticker) return apiError("NOT_FOUND", 404);
     return apiJson({ sticker });

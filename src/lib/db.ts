@@ -8,6 +8,7 @@ import type {
   ResultSet,
 } from "@libsql/client";
 import { SEED_PRODUCTS } from "@/lib/seed-products";
+import { seedStickers } from "@/lib/seed-stickers";
 
 const globalForDb = globalThis as unknown as {
   __ijazDb?: Promise<Client>;
@@ -174,6 +175,7 @@ async function createClientInstance(): Promise<Client> {
     );
   }
   await seedProducts(client);
+  await seedStickers(client);
   return client;
 }
 

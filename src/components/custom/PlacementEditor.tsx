@@ -188,7 +188,7 @@ export function PlacementEditor({
               <p className="text-[12px] font-semibold">
                 {isText ? (placement.text?.content.slice(0, 20) || "Text") :
                  sticker ? sticker.nameEn :
-                 "Your image"}
+                 "Sticker"}
               </p>
               <span className={cn("rounded-full px-1.5 py-0.2 text-[8.5px] font-bold uppercase", catInfo.badgeCls)}>
                 {catInfo.labelShort}

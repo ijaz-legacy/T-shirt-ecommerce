@@ -984,86 +984,92 @@ export function CustomStudio() {
                           cat === "medium" ? "grid-cols-2 sm:grid-cols-3" :
                           "grid-cols-2 sm:grid-cols-3",
                         )}>
-                          {/* Built-in stickers in this category */}
-                          {builtinItems.map((sticker) => {
-                            const ref = `builtin:${sticker.id}`;
-                            const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
-                            const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
-                            return (
-                              <button
-                                key={sticker.id}
-                                type="button"
-                                onClick={() => handleStickerClick(ref, cat)}
-                                aria-pressed={isPlaced}
-                                className={cn(
-                                  "group relative flex flex-col items-center gap-1.5 rounded-2xl border p-2 text-center transition cursor-pointer",
-                                  isPlaced
-                                    ? "border-ink bg-ink/[0.04] ring-1 ring-ink"
-                                    : "border-line bg-paper hover:border-ink/40 hover:bg-shell/30 hover:shadow-xs",
-                                )}
-                              >
-                                <span
+                          {hasCustomStickers ? (
+                            customItems.length === 0 ? (
+                              <p className="col-span-full py-4 text-center text-[11px] text-smoke">
+                                No stickers in this category yet.
+                              </p>
+                            ) : (
+                              customItems.map((sticker) => {
+                                const ref = sticker.image;
+                                const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
+                                const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
+                                return (
+                                  <button
+                                    key={sticker.id}
+                                    type="button"
+                                    onClick={() => handleStickerClick(ref, cat)}
+                                    aria-pressed={isPlaced}
+                                    className={cn(
+                                      "group relative flex flex-col items-center gap-1.5 rounded-2xl border p-2 text-center transition cursor-pointer",
+                                      isPlaced
+                                        ? "border-ink bg-ink/[0.04] ring-1 ring-ink"
+                                        : "border-line bg-paper hover:border-ink/40 hover:bg-shell/30 hover:shadow-xs",
+                                    )}
+                                  >
+                                    <span className={cn(
+                                      "grid place-items-center overflow-hidden rounded-xl bg-shell p-1.5 transition group-hover:scale-105",
+                                      cat === "small" ? "aspect-square w-full max-w-[62px]" :
+                                      cat === "medium" ? "aspect-[4/3] w-full max-w-[110px]" :
+                                      "aspect-[3/4] w-full max-w-[120px]",
+                                    )}>
+                                      <img src={sticker.image} alt={name} className="h-full w-full object-contain" draggable={false} />
+                                    </span>
+                                    <span className="text-[10.5px] font-semibold leading-tight text-ink">{name}</span>
+                                    <span className="text-[9px] text-smoke">
+                                      {cat === "large" ? "Full A4 (₹100)" : cat === "medium" ? "Half A4 (₹59)" : "Pocket logo (₹59)"}
+                                    </span>
+                                    {isPlaced && (
+                                      <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-paper shadow-xs">
+                                        <Check size={11} strokeWidth={2.6} />
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )
+                          ) : (
+                            builtinItems.map((sticker) => {
+                              const ref = `builtin:${sticker.id}`;
+                              const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
+                              const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
+                              return (
+                                <button
+                                  key={sticker.id}
+                                  type="button"
+                                  onClick={() => handleStickerClick(ref, cat)}
+                                  aria-pressed={isPlaced}
                                   className={cn(
-                                    "grid place-items-center rounded-xl p-2 transition group-hover:scale-105",
-                                    cat === "small" ? "aspect-square w-full max-w-[62px]" :
-                                    cat === "medium" ? "aspect-[4/3] w-full max-w-[110px]" :
-                                    "aspect-[3/4] w-full max-w-[120px] p-2.5",
+                                    "group relative flex flex-col items-center gap-1.5 rounded-2xl border p-2 text-center transition cursor-pointer",
+                                    isPlaced
+                                      ? "border-ink bg-ink/[0.04] ring-1 ring-ink"
+                                      : "border-line bg-paper hover:border-ink/40 hover:bg-shell/30 hover:shadow-xs",
                                   )}
-                                  style={{ backgroundColor: sticker.bg }}
                                 >
-                                  <StickerArt sticker={sticker} />
-                                </span>
-                                <span className="text-[10.5px] font-semibold leading-tight text-ink">{name}</span>
-                                <span className="text-[9px] text-smoke">
-                                  {cat === "large" ? "Full A4 (₹100)" : cat === "medium" ? "Half A4 (₹59)" : "Pocket logo (₹59)"}
-                                </span>
-                                {isPlaced ? (
-                                  <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-paper shadow-xs">
-                                    <Check size={11} strokeWidth={2.6} />
+                                  <span
+                                    className={cn(
+                                      "grid place-items-center rounded-xl p-2 transition group-hover:scale-105",
+                                      cat === "small" ? "aspect-square w-full max-w-[62px]" :
+                                      cat === "medium" ? "aspect-[4/3] w-full max-w-[110px]" :
+                                      "aspect-[3/4] w-full max-w-[120px] p-2.5",
+                                    )}
+                                    style={{ backgroundColor: sticker.bg }}
+                                  >
+                                    <StickerArt sticker={sticker} />
                                   </span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-
-                          {/* Custom DB stickers in this category */}
-                          {customItems.map((sticker) => {
-                            const ref = sticker.image;
-                            const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
-                            const name = lang === "ta" ? sticker.nameTa : sticker.nameEn;
-                            return (
-                              <button
-                                key={sticker.id}
-                                type="button"
-                                onClick={() => handleStickerClick(ref, cat)}
-                                aria-pressed={isPlaced}
-                                className={cn(
-                                  "group relative flex flex-col items-center gap-1.5 rounded-2xl border p-2 text-center transition cursor-pointer",
-                                  isPlaced
-                                    ? "border-ink bg-ink/[0.04] ring-1 ring-ink"
-                                    : "border-line bg-paper hover:border-ink/40 hover:bg-shell/30 hover:shadow-xs",
-                                )}
-                              >
-                                <span className={cn(
-                                  "grid place-items-center overflow-hidden rounded-xl bg-shell p-1.5 transition group-hover:scale-105",
-                                  cat === "small" ? "aspect-square w-full max-w-[62px]" :
-                                  cat === "medium" ? "aspect-[4/3] w-full max-w-[110px]" :
-                                  "aspect-[3/4] w-full max-w-[120px]",
-                                )}>
-                                  <img src={sticker.image} alt={name} className="h-full w-full object-contain" draggable={false} />
-                                </span>
-                                <span className="text-[10.5px] font-semibold leading-tight text-ink">{name}</span>
-                                <span className="text-[9px] text-smoke">
-                                  {cat === "large" ? "Full A4 (₹100)" : cat === "medium" ? "Half A4 (₹59)" : "Pocket logo (₹59)"}
-                                </span>
-                                {isPlaced && (
-                                  <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-paper shadow-xs">
-                                    <Check size={11} strokeWidth={2.6} />
+                                  <span className="text-[10.5px] font-semibold leading-tight text-ink">{name}</span>
+                                  <span className="text-[9px] text-smoke">
+                                    {cat === "large" ? "Full A4 (₹100)" : cat === "medium" ? "Half A4 (₹59)" : "Pocket logo (₹59)"}
                                   </span>
-                                )}
-                              </button>
-                            );
-                          })}
+                                  {isPlaced ? (
+                                    <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-paper shadow-xs">
+                                      <Check size={11} strokeWidth={2.6} />
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })
+                          )}
                         </div>
                       </div>
                     );

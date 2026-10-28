@@ -12,6 +12,7 @@ const ACCEPTED_TYPES = new Set([
   "image/webp",
   "image/avif",
   "image/jpeg",
+  "image/svg+xml",
 ]);
 
 function parseStickerForm(form: FormData) {
@@ -28,7 +29,20 @@ function parseStickerForm(form: FormData) {
   return parsed.success ? parsed.data : null;
 }
 
-async function processStickerImage(file: File, category?: string): Promise<Buffer | null> {
+async function processStickerImage(
+  file: File,
+  category?: string,
+): Promise<{ buffer: Buffer; mime: string } | null> {
+  if (file.type === "image/svg+xml") {
+    try {
+      const text = await file.text();
+      if (!text.toLowerCase().includes("<svg")) return null;
+      return { buffer: Buffer.from(text, "utf-8"), mime: "image/svg+xml" };
+    } catch {
+      return null;
+    }
+  }
+
   const maxSize = isStickerCategory(category)
     ? CATEGORY_UPLOAD_SIZE[category]
     : 800;
@@ -46,7 +60,9 @@ async function processStickerImage(file: File, category?: string): Promise<Buffe
       })
       .webp({ quality: 90, alphaQuality: 95 })
       .toBuffer({ resolveWithObject: true });
-    return result.info.format === "webp" ? result.data : null;
+    return result.info.format === "webp"
+      ? { buffer: result.data, mime: "image/webp" }
+      : null;
   } catch (error) {
     console.warn("Rejected sticker image upload", error);
     return null;
@@ -87,7 +103,7 @@ export async function POST(request: Request) {
     const processed = await processStickerImage(file, input.category);
     if (!processed) return apiError("INVALID_IMAGE", 400);
 
-    const sticker = await createSticker(input, processed, "image/webp");
+    const sticker = await createSticker(input, processed.buffer, processed.mime);
     return apiJson({ sticker }, 201);
   } catch (error) {
     console.error("Sticker create failed", error);
