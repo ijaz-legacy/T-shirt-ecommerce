@@ -31,14 +31,8 @@ import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { SizeGuideDialog } from "@/components/ui/SizeGuideDialog";
 import { buttonClass } from "@/components/ui/button";
 import {
-  CATEGORY_DEFAULT_SCALE,
   FITS,
-  FULL_SCALE_THRESHOLD,
   MAX_PLACEMENTS,
-  MAX_ROTATION,
-  MAX_SCALE,
-  MIN_ROTATION,
-  MIN_SCALE,
   SIZES,
   STICKERS,
   TEE_COLORS,
@@ -48,7 +42,6 @@ import {
   getTeeColor,
   isStickerId,
   parsePlacementRef,
-  priceForScale,
 } from "@/lib/catalog";
 import type { FitId, Size, StickerCategory, TeeColorId } from "@/lib/catalog";
 import type { StickerPlacement } from "@/lib/types";
@@ -158,8 +151,9 @@ export function CustomStudio() {
   const fitName = lang === "ta" ? fit.nameTa : fit.nameEn;
   const colorName = lang === "ta" ? color.nameTa : color.nameEn;
   const scales = placements.map((p) => p.scale);
-  const unitPrice = calcCustomUnitPrice(fitId, scales);
-  const designTotal = scales.reduce((s, sc) => s + priceForScale(sc), 0);
+  // scale is now width-% (5–75). Map to old pricing: ≥40% = full price
+  const unitPrice = calcCustomUnitPrice(fitId, scales.map((s) => s >= 40 ? 0.7 : 0.3));
+  const designTotal = scales.reduce((s, sc) => s + (sc >= 40 ? 100 : 59), 0);
   const total = unitPrice * qty;
   const selectedPlacement = selectedIndex !== null ? (placements[selectedIndex] ?? null) : null;
 
@@ -208,11 +202,15 @@ export function CustomStudio() {
       return;
     }
     const spot = DEFAULT_SPOTS[placements.length % DEFAULT_SPOTS.length];
+    // scale = width as % of container. Small=15%, medium=28%, large=45%
+    const defaultScalePct =
+      category === "small" ? 15 :
+      category === "large" ? 45 : 28;
     const newPlacement: StickerPlacement = {
       ref,
       x: spot.x,
       y: spot.y,
-      scale: CATEGORY_DEFAULT_SCALE[category],
+      scale: defaultScalePct,
       rotation: 0,
       ...(style && style.bgShape !== "none" ? { style: { bgShape: style.bgShape, bgColor: style.bgColor } } : {}),
     };
@@ -227,6 +225,14 @@ export function CustomStudio() {
 
   function handleMove(index: number, x: number, y: number) {
     updatePlacement(index, { x, y });
+  }
+
+  function handleResize(index: number, scale: number) {
+    updatePlacement(index, { scale });
+  }
+
+  function handleRotate(index: number, rotation: number) {
+    updatePlacement(index, { rotation });
   }
 
   function removePlacement(index: number) {
@@ -461,6 +467,8 @@ export function CustomStudio() {
                   selectedIndex={selectedIndex}
                   onSelect={setSelectedIndex}
                   onMove={handleMove}
+                  onResize={handleResize}
+                  onRotate={handleRotate}
                   face={face}
                   showGuidelines={showGuidelines}
                   allow3DRotate
@@ -545,32 +553,35 @@ export function CustomStudio() {
                     </button>
                   </div>
                 </div>
+
+                {/* Size info + fine rotation */}
+                <div className="mt-3 grid grid-cols-2 gap-3 text-[10.5px] text-smoke">
+                  <div>
+                    <p className="font-medium">Size</p>
+                    <p className="mt-0.5 font-semibold text-ink">
+                      {Math.round(selectedPlacement.scale)}% wide
+                      {" · "}
+                      <span className={selectedPlacement.scale >= 40 ? "text-rust" : "text-moss"}>
+                        {selectedPlacement.scale >= 40 ? "Full · ₹100" : "Half · ₹59"}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[9.5px] text-smoke/70">Drag corner handles to resize</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Rotation</p>
+                    <p className="mt-0.5 font-semibold text-ink">{Math.round(selectedPlacement.rotation)}°</p>
+                    <p className="mt-0.5 text-[9.5px] text-smoke/70">Drag the red handle to rotate</p>
+                  </div>
+                </div>
+
+                {/* Fine rotation slider */}
                 <label className="mt-3 block">
-                  <span className="flex items-center justify-between text-[10.5px] font-medium text-smoke">
-                    {t.custom.placementSizeLabel}
-                    <span className="font-semibold text-ink">
-                      {selectedPlacement.scale >= FULL_SCALE_THRESHOLD
-                        ? fill(t.custom.fullPrice, { price: formatINR(priceForScale(selectedPlacement.scale)) })
-                        : fill(t.custom.halfPrice, { price: formatINR(priceForScale(selectedPlacement.scale)) })}
-                    </span>
-                  </span>
+                  <span className="text-[10px] text-smoke">Fine rotation</span>
                   <input
-                    type="range" min={MIN_SCALE} max={MAX_SCALE} step={0.05}
-                    value={selectedPlacement.scale}
-                    onChange={(e) => updatePlacement(selectedIndex, { scale: Number(e.target.value) })}
-                    className="mt-1.5 w-full accent-ink"
-                  />
-                </label>
-                <label className="mt-2.5 block">
-                  <span className="flex items-center justify-between text-[10.5px] font-medium text-smoke">
-                    {t.custom.rotateLabel}
-                    <span className="font-semibold text-ink">{Math.round(selectedPlacement.rotation)}°</span>
-                  </span>
-                  <input
-                    type="range" min={MIN_ROTATION} max={MAX_ROTATION} step={1}
+                    type="range" min={-180} max={180} step={1}
                     value={selectedPlacement.rotation}
-                    onChange={(e) => updatePlacement(selectedIndex, { rotation: Number(e.target.value) })}
-                    className="mt-1.5 w-full accent-ink"
+                    onChange={(e) => handleRotate(selectedIndex, Number(e.target.value))}
+                    className="mt-1 w-full accent-ink"
                   />
                 </label>
               </div>
@@ -943,7 +954,9 @@ export function CustomStudio() {
                                 </span>
                               ) : null}
                               {placementName(placement.ref)}
-                              <span className="text-[9.5px] text-smoke">{formatINR(priceForScale(placement.scale))}</span>
+                              <span className="text-[9.5px] text-smoke">
+                                {placement.scale >= 40 ? "₹100" : "₹59"}
+                              </span>
                             </span>
                           );
                         })
