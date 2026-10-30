@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CustomStudio } from "@/components/custom/CustomStudio";
 import { getDictionary } from "@/lib/lang";
+import { requireUser } from "@/lib/session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getDictionary();
@@ -10,7 +11,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function CustomizePage() {
+export default async function CustomizePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ design?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const designId = Array.isArray(params.design) ? params.design[0] : params.design;
+  await requireUser(designId ? `/customize?design=${encodeURIComponent(designId)}` : "/customize");
   const { t } = await getDictionary();
 
   return (
@@ -28,7 +36,7 @@ export default async function CustomizePage() {
       </div>
 
       <div className="mt-8 sm:mt-10">
-        <CustomStudio />
+        <CustomStudio initialDesignId={designId ?? null} />
       </div>
     </div>
   );

@@ -65,9 +65,9 @@ const placementSchema = z.object({
   style: z
     .object({
       bgShape: z.enum(["none", "transparent", "circle", "rounded", "square"]).optional(),
-      bgColor: z.string().optional(),
-      fg: z.string().optional(),
-      accent: z.string().optional(),
+      bgColor: z.string().max(40).optional(),
+      fg: z.string().max(40).optional(),
+      accent: z.string().max(40).optional(),
       crop: z
         .object({
           x: z.number().min(0).max(0.99),
@@ -82,7 +82,7 @@ const placementSchema = z.object({
     .object({
       content: z.string().max(200),
       fontFamily: z.enum(["sans", "serif", "display", "mono"]).optional(),
-      color: z.string().optional(),
+      color: z.string().max(40).optional(),
       bold: z.boolean().optional(),
       italic: z.boolean().optional(),
     })
@@ -96,6 +96,48 @@ const customItemSchema = z.object({
   colorId: z.enum(TEE_COLOR_IDS),
   placements: z.array(placementSchema).min(1).max(MAX_PLACEMENTS),
   quantity: z.number().int().min(1).max(MAX_QTY),
+});
+
+const savedDesignPlacementSchema = placementSchema.extend({
+  scale: z.number().min(0.01).max(100),
+  style: placementSchema.shape.style
+    .unwrap()
+    .transform((style) =>
+      style
+        ? {
+            ...style,
+            bgShape: style.bgShape ?? "none",
+            bgColor: style.bgColor ?? "#FFFFFF",
+          }
+        : undefined,
+    )
+    .optional(),
+  text: placementSchema.shape.text
+    .unwrap()
+    .transform((text) =>
+      text
+        ? {
+            ...text,
+            fontFamily: text.fontFamily ?? "sans",
+            color: text.color ?? "#171512",
+            bold: text.bold ?? false,
+            italic: text.italic ?? false,
+          }
+        : undefined,
+    )
+    .optional(),
+});
+
+export const savedDesignConfigSchema = z.object({
+  fit: z.enum(FIT_IDS),
+  size: z.enum(SIZES).nullable(),
+  colorId: z.enum(TEE_COLOR_IDS),
+  placements: z.array(savedDesignPlacementSchema).max(MAX_PLACEMENTS),
+});
+
+export const savedDesignSchema = z.object({
+  name: z.string().trim().min(1).max(100).default("Untitled design"),
+  config: savedDesignConfigSchema,
 });
 
 export const orderSchema = z.object({

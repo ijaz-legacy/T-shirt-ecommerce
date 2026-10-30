@@ -114,6 +114,19 @@ export default async function AdminDashboardPage() {
         />
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 sm:px-5">
+        <p className="text-sm text-smoke">
+          {t.admin.customersPage.subtitle}
+        </p>
+        <Link
+          href="/admin/customers"
+          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-ink px-4 text-xs font-semibold text-paper transition hover:bg-ink/85"
+        >
+          {t.admin.customersPage.title}
+          <ArrowRight size={14} />
+        </Link>
+      </div>
+
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.25fr_0.75fr]">
         <section className="rounded-[2rem] border border-line bg-paper p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">

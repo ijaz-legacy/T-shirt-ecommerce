@@ -73,6 +73,13 @@ export interface CustomConfig {
   placements: StickerPlacement[];
 }
 
+export interface SavedDesignConfig {
+  fit: FitId;
+  size: Size | null;
+  colorId: TeeColorId;
+  placements: StickerPlacement[];
+}
+
 export type UserRole = "customer" | "admin" | "staff";
 
 export interface UserPublic {

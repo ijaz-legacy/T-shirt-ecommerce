@@ -203,8 +203,8 @@ export async function getAdminStats(): Promise<AdminStats> {
         FROM products WHERE active = 1) AS lowStockProducts,
       (SELECT COALESCE(SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END), 0)
         FROM products WHERE active = 1) AS outOfStockProducts,
-      (SELECT COUNT(*) FROM user_designs) AS totalDesigns,
-      (SELECT COUNT(*) FROM users) AS totalUsers`,
+      (SELECT COUNT(*) FROM user_designs WHERE config_json IS NOT NULL) AS totalDesigns,
+      (SELECT COUNT(*) FROM users WHERE role = 'customer') AS totalUsers`,
     args: [Date.now() - 24 * 60 * 60 * 1000],
   });
 

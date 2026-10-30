@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { randomUUID } from "node:crypto"; // not available in browser – we'll use Math.random
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -47,6 +46,7 @@ import {
 } from "@/lib/catalog";
 import type { FitId, Size, StickerCategory, TeeColorId } from "@/lib/catalog";
 import type { StickerPlacement } from "@/lib/types";
+import type { SavedDesignConfig } from "@/lib/types";
 import { fill, formatINR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/i18n/dictionary";
 import { cn } from "@/lib/cn";
@@ -102,7 +102,7 @@ const CATEGORY_INFO: Record<
   },
 };
 
-export function CustomStudio() {
+export function CustomStudio({ initialDesignId }: { initialDesignId: string | null }) {
   const { lang, t } = useLanguage();
   const { addCustom } = useCart();
   const { showToast } = useToast();
@@ -121,6 +121,10 @@ export function CustomStudio() {
   const [userDesigns, setUserDesigns] = useState<{ id: string; imageId: string; image: string; name: string; category: string }[]>([]);
   const [categoryTab, setCategoryTab] = useState<StickerCategory>("small");
   const [signedIn, setSignedIn] = useState(false);
+  const [designLoaded, setDesignLoaded] = useState(false);
+  const [designId, setDesignId] = useState<string | null>(initialDesignId);
+  const [designSaveState, setDesignSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const [designName, setDesignName] = useState("Untitled design");
   const [uploading, setUploading] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [face, setFace] = useState<"front" | "back">("front");
@@ -132,33 +136,84 @@ export function CustomStudio() {
 
   const wizardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const designIdRef = useRef<string | null>(initialDesignId);
+  const lastSavedSnapshotRef = useRef<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/stickers")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { custom?: ApiSticker[] } | null) => {
-        if (!cancelled && d?.custom) setCustomStickers(d.custom);
-      })
-      .catch(() => {});
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { user?: unknown } | null) => {
-        if (!cancelled) {
-          setSignedIn(Boolean(d?.user));
-          if (d?.user) {
-            fetch("/api/user-designs")
-              .then((r) => (r.ok ? r.json() : null))
-              .then((data: { designs?: { id: string; imageId: string; image: string; name: string; category: string }[] } | null) => {
-                if (!cancelled && data?.designs) setUserDesigns(data.designs);
-              })
-              .catch(() => {});
-          }
+    async function loadStudio() {
+      let studioReady = false;
+      try {
+        const [stickersResponse, authResponse] = await Promise.all([
+          fetch("/api/stickers"),
+          fetch("/api/auth/me"),
+        ]);
+        if (stickersResponse.ok) {
+          const stickers = (await stickersResponse.json()) as { custom?: ApiSticker[] };
+          if (!cancelled && stickers.custom) setCustomStickers(stickers.custom);
         }
-      })
-      .catch(() => {});
+        const auth = authResponse.ok
+          ? (await authResponse.json()) as { user?: unknown }
+          : null;
+        if (!auth?.user) {
+          if (!cancelled) setSignedIn(false);
+          return;
+        }
+        if (cancelled) return;
+        setSignedIn(true);
+
+        const imagesResponse = await fetch("/api/user-designs");
+        if (!imagesResponse.ok) throw new Error("Could not load your image library.");
+        const imagesData = (await imagesResponse.json()) as {
+          designs?: { id: string; imageId: string; image: string; name: string; category: string }[];
+        };
+        if (!cancelled && imagesData.designs) setUserDesigns(imagesData.designs);
+
+        if (initialDesignId) {
+          const designResponse = await fetch(`/api/user-designs/${encodeURIComponent(initialDesignId)}`);
+          if (!designResponse.ok) {
+            router.replace("/user-designs");
+            return;
+          }
+          const result = (await designResponse.json()) as {
+            design?: { id: string; name: string; config: SavedDesignConfig | null };
+          };
+          const design = result.design;
+          if (!design?.config) throw new Error("Saved design is missing its configuration.");
+          if (cancelled) return;
+          const config = design.config;
+          setDesignId(design.id);
+          designIdRef.current = design.id;
+          setDesignName(design.name || "Untitled design");
+          setFitId(config.fit);
+          setSize(config.size);
+          setColorId(config.colorId);
+          setPlacements(config.placements);
+          setStep(config.placements.length > 0 ? 3 : 1);
+          setMaxStep(config.placements.length > 0 ? 3 : 1);
+          lastSavedSnapshotRef.current = JSON.stringify({
+            name: design.name || "Untitled design",
+            config,
+          });
+        } else {
+          lastSavedSnapshotRef.current = JSON.stringify({
+            name: "Untitled design",
+            config: { fit: "regular", size: null, colorId: "cream", placements: [] },
+          });
+        }
+        studioReady = true;
+      } catch (error) {
+        console.error("Could not load custom design studio", error);
+        if (!cancelled) setStepError(getErrorMessage(t, "SERVER_ERROR"));
+      } finally {
+        if (!cancelled) setDesignLoaded(studioReady);
+      }
+    }
+    void loadStudio();
     return () => { cancelled = true; };
-  }, []);
+  }, [initialDesignId, router, t]);
+
 
   const fit = getFit(fitId);
   const color = getTeeColor(colorId);
@@ -169,6 +224,87 @@ export function CustomStudio() {
   const designTotal = scales.reduce((s, sc) => s + (sc > 48 ? 100 : 59), 0);
   const total = unitPrice * qty;
   const selectedPlacement = selectedIndex !== null ? (placements[selectedIndex] ?? null) : null;
+
+  useEffect(() => {
+    if (!designLoaded || !signedIn) return;
+
+    const config: SavedDesignConfig = { fit: fitId, size, colorId, placements };
+    const name = designName || "Untitled design";
+    const snapshot = JSON.stringify({ name, config });
+    if (snapshot === lastSavedSnapshotRef.current) return;
+    if (
+      !designIdRef.current &&
+      size === null &&
+      placements.length === 0 &&
+      fitId === "regular" &&
+      colorId === "cream"
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDesignSaveState("saving");
+      const save = async () => {
+        try {
+          const currentId = designIdRef.current;
+          const response = await fetch(
+            currentId
+              ? `/api/user-designs/${encodeURIComponent(currentId)}`
+              : "/api/user-designs",
+            {
+              method: currentId ? "PUT" : "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, config }),
+            },
+          );
+          const result = await response.json().catch(() => null) as {
+            design?: { id?: string };
+            error?: string;
+          } | null;
+          if (!response.ok) throw new Error(result?.error ?? "SERVER_ERROR");
+
+          if (!currentId) {
+            const createdId = result?.design?.id;
+            if (!createdId) throw new Error("Saved design response did not include an ID.");
+            designIdRef.current = createdId;
+            setDesignId(createdId);
+            window.history.replaceState(
+              null,
+              "",
+              `/customize?design=${encodeURIComponent(createdId)}`,
+            );
+          }
+          lastSavedSnapshotRef.current = snapshot;
+          setDesignSaveState("saved");
+        } catch (error) {
+          console.error("Could not auto-save custom design", error);
+          setDesignSaveState("error");
+          showToast({
+            title: t.toasts.errorTitle,
+            description: getErrorMessage(
+              t,
+              error instanceof Error ? error.message : "SERVER_ERROR",
+            ),
+            tone: "error",
+          });
+        }
+      };
+      saveQueueRef.current = saveQueueRef.current.then(save, save);
+    }, 900);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    colorId,
+    designLoaded,
+    designName,
+    fitId,
+    placements,
+    router,
+    showToast,
+    signedIn,
+    size,
+    t,
+  ]);
 
   const stepLabels: { value: Step; label: string }[] = [
     { value: 1, label: t.custom.step1 },
@@ -750,9 +886,28 @@ export function CustomStudio() {
 
           {/* Step content — NO key={step} here to prevent remounting */}
           <div className="mt-5 rounded-[2rem] border border-line bg-paper p-5 sm:p-7">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-smoke">
-              {fill(t.custom.stepOf, { current: step })}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-smoke">
+                {fill(t.custom.stepOf, { current: step })}
+              </p>
+              {signedIn ? (
+                <p
+                  aria-live="polite"
+                  className={cn(
+                    "text-[10px] font-medium",
+                    designSaveState === "error" ? "text-rust" : "text-smoke",
+                  )}
+                >
+                  {designSaveState === "saving"
+                    ? t.custom.designSaving
+                    : designSaveState === "error"
+                      ? t.custom.designSaveError
+                      : designId
+                        ? t.custom.designSaved
+                        : t.custom.designAutoSave}
+                </p>
+              ) : null}
+            </div>
 
             {/* ── Step 1: Fit & Size ────────────────────────────────── */}
             {step === 1 ? (

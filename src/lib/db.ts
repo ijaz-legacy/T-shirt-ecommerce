@@ -173,6 +173,13 @@ async function createClientInstance(): Promise<Client> {
     "kind",
     "TEXT NOT NULL DEFAULT 'product'",
   );
+  await addColumnIfMissing(client, "user_designs", "config_json", "TEXT");
+  await addColumnIfMissing(
+    client,
+    "user_designs",
+    "updated_at",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_stickers_active_sort ON stickers(active, sort_order)",
   );
@@ -190,7 +197,7 @@ async function createClientInstance(): Promise<Client> {
 
 async function addColumnIfMissing(
   client: Client,
-  table: "users" | "products" | "product_images",
+  table: "users" | "products" | "product_images" | "user_designs",
   column: string,
   definition: string,
 ): Promise<void> {

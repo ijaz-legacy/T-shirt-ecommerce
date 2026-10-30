@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Shirt, Sticker } from "lucide-react";
+import { LayoutDashboard, Package, Shirt, Sticker, Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { cn } from "@/lib/cn";
 
@@ -38,6 +38,13 @@ export function AdminNav({ role }: { role: "admin" | "staff" }) {
       label: t.admin.nav.stickers,
       icon: Sticker,
       active: pathname.startsWith("/admin/stickers"),
+      staff: false,
+    },
+    {
+      href: "/admin/customers",
+      label: t.admin.nav.customers,
+      icon: Users,
+      active: pathname.startsWith("/admin/customers"),
       staff: false,
     },
   ].filter((link) => role === "admin" || link.staff);

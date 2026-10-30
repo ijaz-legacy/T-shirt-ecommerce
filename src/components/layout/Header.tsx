@@ -221,7 +221,7 @@ export function Header({ user }: { user: UserPublic | null }) {
                       {t.nav.orders}
                     </Link>
                     <Link
-                      href="/customize"
+                      href="/user-designs"
                       role="menuitem"
                       onClick={closeMenus}
                       className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition hover:bg-shell"
@@ -389,7 +389,7 @@ export function Header({ user }: { user: UserPublic | null }) {
                       <ArrowRight size={16} className="opacity-40" />
                     </Link>
                     <Link
-                      href="/customize"
+                      href="/user-designs"
                       onClick={closeMenus}
                       className="flex items-center justify-between rounded-2xl px-4 py-3.5 text-base font-semibold text-ink transition hover:bg-shell"
                     >
