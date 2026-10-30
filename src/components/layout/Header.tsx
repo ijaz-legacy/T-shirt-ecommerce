@@ -238,7 +238,7 @@ export function Header({ user }: { user: UserPublic | null }) {
                       <Truck size={16} />
                       {t.nav.track}
                     </Link>
-                    {user.role === "admin" ? (
+                    {(user.role === "admin" || user.role === "staff") ? (
                       <Link
                         href="/admin"
                         role="menuitem"
@@ -416,7 +416,7 @@ export function Header({ user }: { user: UserPublic | null }) {
                       </span>
                       <ArrowRight size={16} className="opacity-40" />
                     </Link>
-                    {user.role === "admin" ? (
+                    {(user.role === "admin" || user.role === "staff") ? (
                       <Link
                         href="/admin"
                         onClick={closeMenus}

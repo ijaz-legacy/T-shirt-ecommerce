@@ -6,36 +6,41 @@ import { LayoutDashboard, Package, Shirt, Sticker } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { cn } from "@/lib/cn";
 
-export function AdminNav() {
+export function AdminNav({ role }: { role: "admin" | "staff" }) {
   const { t } = useLanguage();
   const pathname = usePathname();
 
+  // Staff members manage orders only — the rest of the console stays owner-only.
   const links = [
     {
       href: "/admin",
       label: t.admin.nav.dashboard,
       icon: LayoutDashboard,
       active: pathname === "/admin",
+      staff: false,
     },
     {
       href: "/admin/orders",
       label: t.admin.nav.orders,
       icon: Package,
       active: pathname.startsWith("/admin/orders"),
+      staff: true,
     },
     {
       href: "/admin/products",
       label: t.admin.nav.products,
       icon: Shirt,
       active: pathname.startsWith("/admin/products"),
+      staff: false,
     },
     {
       href: "/admin/stickers",
       label: t.admin.nav.stickers,
       icon: Sticker,
       active: pathname.startsWith("/admin/stickers"),
+      staff: false,
     },
-  ];
+  ].filter((link) => role === "admin" || link.staff);
 
   return (
     <nav

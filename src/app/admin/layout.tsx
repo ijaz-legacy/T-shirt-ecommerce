@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { fill } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
-import { requireAdmin } from "@/lib/session";
+import { requireStaffManager } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: {
@@ -19,7 +19,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireAdmin("/admin");
+  const user = await requireStaffManager("/admin");
   const { t } = await getDictionary();
 
   return (
@@ -49,7 +49,8 @@ export default async function AdminLayout({
       </div>
 
       <div className="mt-5">
-        <AdminNav />
+        {/* requireStaffManager above guarantees admin | staff here */}
+        <AdminNav role={user.role === "staff" ? "staff" : "admin"} />
       </div>
 
       <div className="mt-5">{children}</div>

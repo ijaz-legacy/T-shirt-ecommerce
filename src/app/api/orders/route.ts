@@ -3,6 +3,7 @@ import { createOrder, OrderError } from "@/lib/orders";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import { orderSchema } from "@/lib/validation";
+import { notifyOwnerNewOrder } from "@/lib/whatsapp-alerts";
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return apiError("VALIDATION_ERROR", 400);
 
     const order = await createOrder(user, parsed.data);
+    // Wake the owner's WhatsApp — fire-and-forget, never blocks the response.
+    notifyOwnerNewOrder(order);
     return apiJson({
       order: {
         id: order.id,

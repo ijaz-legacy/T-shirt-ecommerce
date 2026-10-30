@@ -16,6 +16,7 @@ import {
 import { fill, formatDate, formatINR } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
 import { getOrdersForAdmin } from "@/lib/orders";
+import { requireAdmin } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -57,6 +58,8 @@ function StatCard({
 }
 
 export default async function AdminDashboardPage() {
+  // Staff accounts manage orders only — the dashboard stays owner-only.
+  await requireAdmin("/admin");
   const { lang, t } = await getDictionary();
   const [stats, recent, lowStock] = await Promise.all([
     getAdminStats(),

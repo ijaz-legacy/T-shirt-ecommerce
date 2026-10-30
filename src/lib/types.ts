@@ -73,7 +73,7 @@ export interface CustomConfig {
   placements: StickerPlacement[];
 }
 
-export type UserRole = "customer" | "admin";
+export type UserRole = "customer" | "admin" | "staff";
 
 export interface UserPublic {
   id: string;

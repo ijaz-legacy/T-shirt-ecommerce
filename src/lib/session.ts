@@ -26,6 +26,15 @@ export async function requireAdmin(returnTo: string): Promise<UserPublic> {
   return user;
 }
 
+/** Admin or staff — for sections staff members are allowed to manage (orders). */
+export async function requireStaffManager(returnTo: string): Promise<UserPublic> {
+  const user = await requireUser(returnTo);
+  if (user.role !== "admin" && user.role !== "staff") {
+    notFound();
+  }
+  return user;
+}
+
 export function isAdmin(user: UserPublic | null): boolean {
   return user?.role === "admin";
 }

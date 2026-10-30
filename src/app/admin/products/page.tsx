@@ -7,10 +7,13 @@ import { listAdminProducts } from "@/lib/admin";
 import { cn } from "@/lib/cn";
 import { fill, formatDate, formatINR } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
+import { requireAdmin } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Products" };
 
 export default async function AdminProductsPage() {
+  // Staff accounts manage orders only — products stay owner-only.
+  await requireAdmin("/admin/products");
   const { lang, t } = await getDictionary();
   const products = await listAdminProducts();
 

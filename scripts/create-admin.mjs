@@ -4,14 +4,20 @@ import { pathToFileURL } from "node:url";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { createClient } from "@libsql/client";
 
-const [emailArg, passwordArg, nameArg] = process.argv.slice(2);
+const [emailArg, passwordArg, nameArg, roleArg] = process.argv.slice(2);
 const email = emailArg?.trim().toLowerCase() ?? "";
 const password = passwordArg ?? "";
 const name = nameArg?.trim() || "Store admin";
+const role = roleArg?.trim().toLowerCase() || "admin";
 
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-  console.error("Usage: node scripts/create-admin.mjs <email> <password> [name]");
+  console.error("Usage: node scripts/create-admin.mjs <email> <password> [name] [role:admin|staff]");
   console.error("A valid email address is required.");
+  process.exit(1);
+}
+
+if (role !== "admin" && role !== "staff") {
+  console.error(`Unknown role "${role}" — use "admin" or "staff".`);
   process.exit(1);
 }
 
@@ -119,20 +125,20 @@ async function main() {
 
   if (existingUser) {
     await client.execute({
-      sql: "UPDATE users SET role = 'admin' WHERE id = ?",
-      args: [existingUser.id],
+      sql: "UPDATE users SET role = ? WHERE id = ?",
+      args: [role, existingUser.id],
     });
-    console.log(`Promoted existing account ${email} to admin.`);
+    console.log(`Promoted existing account ${email} to ${role}.`);
     console.log("The existing password was not changed.");
     return;
   }
 
   await client.execute({
     sql: `INSERT INTO users (id, name, email, password_hash, role, created_at)
-          VALUES (?, ?, ?, ?, 'admin', ?)`,
-    args: [randomUUID(), name, email, hashPassword(password), Date.now()],
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [randomUUID(), name, email, hashPassword(password), role, Date.now()],
   });
-  console.log(`Created admin account ${email}.`);
+  console.log(`Created ${role} account ${email}.`);
 }
 
 main()

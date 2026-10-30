@@ -1,4 +1,4 @@
-import { requireAdminApi } from "@/lib/api-auth";
+import { requireStaffApi } from "@/lib/api-auth";
 import { apiError, apiJson, guardJsonMutation } from "@/lib/http";
 import { OrderError, updateOrderStatus } from "@/lib/orders";
 import { rateLimit } from "@/lib/rate-limit";
@@ -12,7 +12,7 @@ export async function POST(
     const guarded = guardJsonMutation(request);
     if (guarded) return guarded;
 
-    const auth = await requireAdminApi();
+    const auth = await requireStaffApi();
     if (auth.response) return auth.response;
 
     const limit = rateLimit(
