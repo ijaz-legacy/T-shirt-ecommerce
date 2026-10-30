@@ -123,7 +123,8 @@ export function CustomStudio() {
   const [qty, setQty] = useState(1);
   const [stepError, setStepError] = useState<string | null>(null);
   const [customStickers, setCustomStickers] = useState<ApiSticker[]>([]);
-  const [categoryTab, setCategoryTab] = useState<StickerCategory | "all">("all");
+  const [userDesigns, setUserDesigns] = useState<{ id: string; imageId: string; image: string; name: string; category: string }[]>([]);
+  const [categoryTab, setCategoryTab] = useState<StickerCategory>("small");
   const [signedIn, setSignedIn] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -149,7 +150,17 @@ export function CustomStudio() {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { user?: unknown } | null) => {
-        if (!cancelled) setSignedIn(Boolean(d?.user));
+        if (!cancelled) {
+          setSignedIn(Boolean(d?.user));
+          if (d?.user) {
+            fetch("/api/user-designs")
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data: { designs?: { id: string; imageId: string; image: string; name: string; category: string }[] } | null) => {
+                if (!cancelled && data?.designs) setUserDesigns(data.designs);
+              })
+              .catch(() => {});
+          }
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -374,9 +385,12 @@ export function CustomStudio() {
     form.append("category", category);
     try {
       const res = await fetch("/api/custom-upload", { method: "POST", body: form });
-      const data = (await res.json().catch(() => null)) as { path?: string; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { id?: string; path?: string; error?: string } | null;
       if (res.ok && data?.path) {
         addPlacement(data.path, category);
+        if (data.id) {
+          setUserDesigns((prev) => [{ id: data.id!, imageId: data.id!, image: data.path!, name: "", category }, ...prev]);
+        }
       } else {
         setStepError(getErrorMessage(t, data?.error ?? "SERVER_ERROR"));
       }
@@ -939,10 +953,9 @@ export function CustomStudio() {
                   </span>
                 </div>
 
-                {/* 3 Sticker Categories Tabs */}
+                {/* 3 Sticker Categories Tabs — one category visible at a time */}
                 <div className="mt-4 flex flex-wrap gap-1.5 border-b border-line pb-3">
                   {[
-                    { id: "all", label: "All Styles" },
                     { id: "small", label: "Small (Logos & Icons)" },
                     { id: "medium", label: "Medium (Half A4 Designs)" },
                     { id: "large", label: "Big (Full A4 / Anime)" },
@@ -952,7 +965,7 @@ export function CustomStudio() {
                       <button
                         key={tab.id}
                         type="button"
-                        onClick={() => setCategoryTab(tab.id as StickerCategory | "all")}
+                        onClick={() => setCategoryTab(tab.id as StickerCategory)}
                         className={cn(
                           "rounded-full px-3 py-1 text-[11px] font-semibold transition-all cursor-pointer",
                           isActive
@@ -969,7 +982,7 @@ export function CustomStudio() {
                 {/* Categorized Sticker Library */}
                 <div className="mt-4 space-y-6">
                   {(["small", "medium", "large"] as StickerCategory[]).map((cat) => {
-                    if (categoryTab !== "all" && categoryTab !== cat) return null;
+                    if (categoryTab !== cat) return null;
                     const info = CATEGORY_INFO[cat];
                     const builtinItems = STICKERS.filter((s) => s.category === cat);
                     const customItems = customByCategory[cat] ?? [];
@@ -1102,6 +1115,74 @@ export function CustomStudio() {
                     + Add
                   </button>
                 </div>
+
+                {/* Your Designs Library */}
+                {signedIn && userDesigns.length > 0 ? (
+                  <div className="mt-5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="text-[12px] font-bold tracking-tight text-ink">
+                        {t.custom.yourDesigns}
+                      </h3>
+                      <span className="text-[10px] text-smoke">
+                        {userDesigns.length} saved
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-smoke">
+                      {t.custom.yourDesignsHint}
+                    </p>
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {userDesigns.map((design) => {
+                        const ref = design.image;
+                        const isPlaced = placements.some((p) => p.ref === ref && (p.face ?? "front") === face);
+                        const cat = design.category === "large" ? "large" : design.category === "small" ? "small" : "medium";
+                        return (
+                          <div key={design.id} className="relative">
+                            <button
+                              type="button"
+                              onClick={() => handleStickerClick(ref, cat as import("@/lib/catalog").StickerCategory)}
+                              aria-pressed={isPlaced}
+                              className={cn(
+                                "group flex w-full flex-col items-center gap-1 rounded-2xl border p-2 text-center transition cursor-pointer",
+                                isPlaced
+                                  ? "border-ink bg-ink/[0.04] ring-1 ring-ink"
+                                  : "border-line bg-paper hover:border-ink/40 hover:bg-shell/30 hover:shadow-xs",
+                              )}
+                            >
+                              <span className="grid aspect-square w-full max-w-[80px] place-items-center overflow-hidden rounded-xl bg-shell p-1.5 transition group-hover:scale-105">
+                                <img src={design.image} alt={design.name || t.custom.yourImage} className="h-full w-full object-contain" draggable={false} />
+                              </span>
+                              {design.name ? (
+                                <span className="text-[10px] font-medium leading-tight text-ink truncate w-full">{design.name}</span>
+                              ) : null}
+                              {isPlaced && (
+                                <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-paper shadow-xs">
+                                  <Check size={11} strokeWidth={2.6} />
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await fetch(`/api/user-designs/${design.id}`, {
+                                    method: "DELETE",
+                                    headers: { "Content-Type": "application/json" },
+                                  });
+                                  setUserDesigns((prev) => prev.filter((d) => d.id !== design.id));
+                                } catch {}
+                              }}
+                              className="absolute -right-1 -bottom-1 grid h-5 w-5 place-items-center rounded-full bg-paper border border-line text-smoke shadow-xs transition hover:bg-rust hover:text-paper hover:border-rust"
+                              aria-label={t.custom.deleteDesign}
+                            >
+                              <X size={10} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 {/* Upload image */}
                 <div className="mt-4 rounded-2xl border border-dashed border-ink/25 bg-shell/40 p-3.5">

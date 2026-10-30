@@ -52,6 +52,9 @@ export interface StickerPlacement {
     /** Sticker theme overrides (built-in SVG stickers only) */
     fg?: string;
     accent?: string;
+    /** Cropped region of the sticker, normalized 0–1 of the placement box.
+     *  x/y = top-left corner, w/h = width/height. Cropping hides the rest. */
+    crop?: { x: number; y: number; w: number; h: number };
   };
   /** Text content — only present when ref starts with "text:" */
   text?: {

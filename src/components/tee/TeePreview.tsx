@@ -72,6 +72,36 @@ export function TeePreview({
 
         if (!parsed) return null;
 
+        // Shared crop window: clips the sticker artwork to placement.style.crop
+        const renderCroppable = (child: React.ReactNode) => {
+          const crop = placement.style?.crop;
+          if (!crop || (crop.w === 1 && crop.h === 1 && crop.x === 0 && crop.y === 0)) {
+            return child;
+          }
+          return (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  width: `${100 / crop.w}%`,
+                  height: `${100 / crop.h}%`,
+                  left: `${(-crop.x / crop.w) * 100}%`,
+                  top: `${(-crop.y / crop.h) * 100}%`,
+                }}
+              >
+                {child}
+              </div>
+            </div>
+          );
+        };
+
         // ── Uploaded image ─────────────────────────────────────────────
         if (parsed.type === "image") {
           const styleOv = placement.style;
@@ -87,13 +117,13 @@ export function TeePreview({
             return (
               <div key={key} style={{ ...base, backgroundColor: bgColor, borderRadius, padding: "10%",
                 boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,.25), 0 6px 18px -5px rgba(23,21,18,.28)" }}>
-                <img src={placement.ref} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
+                {renderCroppable(<img src={placement.ref} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />)}
               </div>
             );
           }
           return (
             <div key={key} style={base}>
-              <img src={placement.ref} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
+              {renderCroppable(<img src={placement.ref} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />)}
             </div>
           );
         }
@@ -126,11 +156,13 @@ export function TeePreview({
                   : "inset 0 0 0 1.5px rgba(255,255,255,.25), 0 6px 18px -5px rgba(23,21,18,.28)",
               }}
             >
-              <StickerArt
-                sticker={sticker}
-                fgOverride={styleOv?.fg}
-                accentOverride={styleOv?.accent}
-              />
+              {renderCroppable(
+                <StickerArt
+                  sticker={sticker}
+                  fgOverride={styleOv?.fg}
+                  accentOverride={styleOv?.accent}
+                />,
+              )}
             </div>
           );
         }

@@ -432,6 +432,31 @@ export function TeeCanvas({
 
             if (!parsed) return null;
 
+            // ── Cropped sticker: clip to the selected region ────────────
+            // crop is normalized 0–1 of the square placement box (x/y = top
+            // left corner, w/h = size). A full-frame crop renders unchanged.
+            const crop = styleOv?.crop;
+            const stickerArt =
+              parsed.type === "image" ? (
+                <img
+                  src={placement.ref}
+                  alt=""
+                  style={{
+                    width: "100%", height: "100%",
+                    objectFit: "contain",
+                    pointerEvents: "none",
+                    display: "block",
+                  }}
+                  draggable={false}
+                />
+              ) : parsed.type === "builtin" ? (
+                <StickerArt
+                  sticker={getSticker(parsed.id)}
+                  fgOverride={styleOv?.fg}
+                  accentOverride={styleOv?.accent}
+                />
+              ) : null;
+
             return (
               <div
                 key={`el-${index}`}
@@ -441,25 +466,25 @@ export function TeeCanvas({
                 onPointerUp={onUp_}
               >
                 <div style={innerStyle}>
-                  {parsed.type === "image" ? (
-                    <img
-                      src={placement.ref}
-                      alt=""
-                      style={{
-                        width: "100%", height: "100%",
-                        objectFit: "contain",
-                        pointerEvents: "none",
-                        display: "block",
-                      }}
-                      draggable={false}
-                    />
-                  ) : parsed.type === "builtin" ? (
-                    <StickerArt
-                      sticker={getSticker(parsed.id)}
-                      fgOverride={styleOv?.fg}
-                      accentOverride={styleOv?.accent}
-                    />
-                  ) : null}
+                  {crop ? (
+                    <div style={{
+                      width: "100%", height: "100%",
+                      overflow: "hidden",
+                      position: "relative",
+                    }}>
+                      <div style={{
+                        position: "absolute",
+                        width: `${100 / crop.w}%`,
+                        height: `${100 / crop.h}%`,
+                        left: `${(-crop.x / crop.w) * 100}%`,
+                        top: `${(-crop.y / crop.h) * 100}%`,
+                      }}>
+                        {stickerArt}
+                      </div>
+                    </div>
+                  ) : (
+                    stickerArt
+                  )}
                 </div>
                 {handles}
               </div>

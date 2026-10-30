@@ -13,9 +13,10 @@
  */
 
 import { useState } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Crop, Minus, Plus, Trash2 } from "lucide-react";
 import { getCategoryFromScale, getSticker, isStickerId, parsePlacementRef } from "@/lib/catalog";
 import { StickerArt } from "@/components/tee/StickerArt";
+import { StickerCropModal } from "@/components/custom/StickerCropModal";
 import { cn } from "@/lib/cn";
 import type { StickerPlacement } from "@/lib/types";
 
@@ -129,6 +130,8 @@ export function PlacementEditor({
   const styleOv = placement.style ?? { bgShape: "transparent" as BgShape, bgColor: "#FFFFFF" };
   const catInfo = getCategoryFromScale(placement.scale);
 
+  const [showCrop, setShowCrop] = useState(false);
+
   const bgShape = (styleOv.bgShape as BgShape) ?? "transparent";
   const bgColor = styleOv.bgColor ?? "#FFFFFF";
   const fgColor = styleOv.fg ?? sticker?.fg ?? "#171512";
@@ -200,6 +203,17 @@ export function PlacementEditor({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {!isText && (
+            <button
+              type="button"
+              onClick={() => setShowCrop(true)}
+              title="Crop the sticker to keep only the part you want"
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-shell px-2.5 py-1 text-[10px] font-medium text-ink transition hover:border-ink/40"
+            >
+              <Crop size={11} />
+              <span>{styleOv.crop ? "Edit crop" : "Crop"}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onChange(index, { face: (placement.face ?? "front") === "front" ? "back" : "front" })}
@@ -219,6 +233,20 @@ export function PlacementEditor({
           </button>
         </div>
       </div>
+
+      {/* Crop modal (uploaded images + built-in stickers, not text) */}
+      {!isText && showCrop ? (
+        <StickerCropModal
+          stickerRef={placement.ref}
+          initialCrop={styleOv.crop ?? null}
+          onApply={(crop) => {
+            setShowCrop(false);
+            const style = { ...styleOv, crop: crop ?? undefined };
+            onChange(index, { style });
+          }}
+          onCancel={() => setShowCrop(false)}
+        />
+      ) : null}
 
       <div className="mt-4 space-y-4">
         {/* ── Text editing ──────────────────────────────────── */}

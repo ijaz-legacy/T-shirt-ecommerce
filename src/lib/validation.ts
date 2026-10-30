@@ -68,6 +68,14 @@ const placementSchema = z.object({
       bgColor: z.string().optional(),
       fg: z.string().optional(),
       accent: z.string().optional(),
+      crop: z
+        .object({
+          x: z.number().min(0).max(0.99),
+          y: z.number().min(0).max(0.99),
+          w: z.number().min(0.01).max(1),
+          h: z.number().min(0.01).max(1),
+        })
+        .optional(),
     })
     .optional(),
   text: z
