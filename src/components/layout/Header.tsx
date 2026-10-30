@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Package,
+  Palette,
   Shirt,
   ShoppingBag,
   Sparkles,
@@ -220,6 +221,15 @@ export function Header({ user }: { user: UserPublic | null }) {
                       {t.nav.orders}
                     </Link>
                     <Link
+                      href="/customize"
+                      role="menuitem"
+                      onClick={closeMenus}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition hover:bg-shell"
+                    >
+                      <Palette size={16} />
+                      {t.nav.designs}
+                    </Link>
+                    <Link
                       href="/track"
                       role="menuitem"
                       onClick={closeMenus}
@@ -375,6 +385,17 @@ export function Header({ user }: { user: UserPublic | null }) {
                       <span className="flex items-center gap-3">
                         <Package size={18} />
                         {t.nav.orders}
+                      </span>
+                      <ArrowRight size={16} className="opacity-40" />
+                    </Link>
+                    <Link
+                      href="/customize"
+                      onClick={closeMenus}
+                      className="flex items-center justify-between rounded-2xl px-4 py-3.5 text-base font-semibold text-ink transition hover:bg-shell"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Palette size={18} />
+                        {t.nav.designs}
                       </span>
                       <ArrowRight size={16} className="opacity-40" />
                     </Link>

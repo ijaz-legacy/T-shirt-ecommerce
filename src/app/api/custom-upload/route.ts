@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { saveProductImage } from "@/lib/admin";
 import { apiError, apiJson, guardMultipartMutation } from "@/lib/http";
+import { createUserDesign } from "@/lib/user-designs";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import { CATEGORY_UPLOAD_SIZE, isStickerCategory } from "@/lib/catalog";
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     }
 
     const id = await saveProductImage(processed, "image/webp", "custom-upload");
+    await createUserDesign(user.id, id, "", category);
     return apiJson({ id, path: `/api/images/${id}`, category }, 201);
   } catch (error) {
     console.error("Custom image upload failed", error);

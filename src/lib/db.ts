@@ -112,6 +112,15 @@ const SCHEMA: InStatement[] = [
     unit_price INTEGER NOT NULL
   )`,
   "CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)",
+  `CREATE TABLE IF NOT EXISTS user_designs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    image_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT 'medium',
+    created_at INTEGER NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS idx_user_designs_user ON user_designs(user_id, created_at)",
 ];
 
 function databaseConfig(): {
