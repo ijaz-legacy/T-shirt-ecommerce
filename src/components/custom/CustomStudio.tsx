@@ -63,11 +63,6 @@ interface ApiSticker {
   category: StickerCategory;
 }
 
-interface SizeCategoryModal {
-  file: File;
-  pending: boolean;
-}
-
 // State for the sticker-style editor dialog — REMOVED (now inline in PlacementEditor)
 
 
@@ -130,7 +125,6 @@ export function CustomStudio() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [face, setFace] = useState<"front" | "back">("front");
   const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
-  const [sizeModal, setSizeModal] = useState<SizeCategoryModal | null>(null);
   const [uploadModeFile, setUploadModeFile] = useState<File | null>(null);
   // text add modal
   const [showTextModal, setShowTextModal] = useState(false);
@@ -336,8 +330,10 @@ export function CustomStudio() {
   async function handleFileSelected(file: File) {
     const isTransparent = await checkImageHasTransparency(file);
     if (isTransparent) {
-      // Image already has a transparent background — directly add as a transparent sticker without extra steps
-      setSizeModal({ file, pending: false });
+      // Image already has a transparent background — place it directly, no extra steps.
+      // Its print size is decided by how the customer resizes it on the tee,
+      // not by a prompt: the scale they settle on maps to Small / Medium / Big.
+      await handleUploadWithCategory(file);
       return;
     }
     setUploadModeFile(file);
@@ -345,8 +341,9 @@ export function CustomStudio() {
 
   function handleUseFullImage() {
     if (!uploadModeFile) return;
-    setSizeModal({ file: uploadModeFile, pending: false });
+    const file = uploadModeFile;
     setUploadModeFile(null);
+    void handleUploadWithCategory(file);
   }
 
   function handleExtractDesign() {
@@ -363,7 +360,7 @@ export function CustomStudio() {
   function handleEditorSave(blob: Blob, fileName: string) {
     const editedFile = new File([blob], fileName, { type: "image/png" });
     setImageEditorFile(null);
-    setSizeModal({ file: editedFile, pending: false });
+    void handleUploadWithCategory(editedFile);
   }
 
   function handleEditorCancel() {
@@ -371,13 +368,15 @@ export function CustomStudio() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleUploadWithCategory(file: File, category: StickerCategory) {
+  async function handleUploadWithCategory(file: File) {
     if (placements.length >= MAX_PLACEMENTS) {
       setStepError(fill(t.custom.stickersLimit, { max: MAX_PLACEMENTS }));
-      setSizeModal(null);
       return;
     }
-    setSizeModal((p) => (p ? { ...p, pending: true } : null));
+    // No "how big?" prompt: the upload lands at a medium starting scale and
+    // the customer resizes it. Small/Medium/Big is derived live from that
+    // scale (getCategoryFromScale), including the price tier.
+    const category: StickerCategory = "medium";
     setUploading(true);
     setStepError(null);
     const form = new FormData();
@@ -398,7 +397,6 @@ export function CustomStudio() {
       setStepError(getErrorMessage(t, "NETWORK_ERROR"));
     } finally {
       setUploading(false);
-      setSizeModal(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -495,70 +493,6 @@ export function CustomStudio() {
                 Add text
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Size category modal */}
-      {sizeModal ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Choose image size"
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"
-          onClick={() => !sizeModal.pending && setSizeModal(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[2rem] border border-line bg-paper p-5 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-display text-lg font-bold tracking-[-0.02em]">
-                  How big is this image?
-                </h3>
-                <p className="mt-1 text-[12px] text-smoke">
-                  Choose how it will be printed on the tee.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSizeModal(null)}
-                disabled={sizeModal.pending}
-                aria-label="Close"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-smoke transition hover:bg-shell hover:text-ink"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="mt-4 flex flex-col gap-2.5">
-              {(["small", "medium", "large"] as StickerCategory[]).map((cat) => {
-                const info = CATEGORY_INFO[cat];
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    disabled={sizeModal.pending}
-                    onClick={() => handleUploadWithCategory(sizeModal.file, cat)}
-                    className="flex flex-col gap-1 rounded-2xl border border-line bg-paper p-3.5 text-left transition hover:border-ink/40 hover:bg-shell/50 disabled:opacity-60"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className={cn("rounded-full px-2.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em]", info.badgeCls)}>
-                        {cat}
-                      </span>
-                      <span className="text-[13px] font-semibold">{info.labelEn}</span>
-                    </span>
-                    <span className="text-[11px] leading-relaxed text-smoke">{info.hint}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {sizeModal.pending ? (
-              <div className="mt-4 flex items-center justify-center gap-2 text-[12px] text-smoke">
-                <Loader2 size={14} className="animate-spin" />
-                Uploading…
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}

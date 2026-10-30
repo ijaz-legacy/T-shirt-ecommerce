@@ -160,6 +160,14 @@ export const SHIPPING_FEE = 49;
 export const CUSTOM_PRICE_HALF = 59;
 export const CUSTOM_PRICE_FULL = 100;
 export const FULL_SCALE_THRESHOLD = 0.6;
+
+/** Store WhatsApp number for enquiries — international format, digits only.
+ *  Change this one value to point every WhatsApp contact link at the shop. */
+export const WHATSAPP_NUMBER = "919999999999";
+
+/** Pre-filled message used when customers open a WhatsApp enquiry. */
+export const WHATSAPP_PREFILL =
+  "Hi IJAZ LEGACY! I have an enquiry about your custom tees.";
 export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 100;
 export const MIN_ROTATION = -180;

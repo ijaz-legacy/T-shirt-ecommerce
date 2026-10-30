@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/catalog";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  WHATSAPP_NUMBER,
+  WHATSAPP_PREFILL,
+} from "@/lib/catalog";
 import { fill, formatINR } from "@/lib/currency";
 import { getDictionary } from "@/lib/lang";
 
@@ -120,13 +124,24 @@ export async function Footer() {
               <p className="mt-1.5 max-w-[240px] text-xs leading-relaxed text-paper/50">
                 {t.footer.contactText}
               </p>
-              <a
-                href={`mailto:${t.footer.email}`}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-gold underline decoration-gold/30 underline-offset-4 transition hover:decoration-gold"
-              >
-                {t.footer.email}
-                <ArrowUpRight size={13} />
-              </a>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <a
+                  href={`mailto:${t.footer.email}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold underline decoration-gold/30 underline-offset-4 transition hover:decoration-gold"
+                >
+                  {t.footer.email}
+                  <ArrowUpRight size={13} />
+                </a>
+                <a
+                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_PREFILL)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold underline decoration-gold/30 underline-offset-4 transition hover:decoration-gold"
+                >
+                  <MessageCircle size={13} />
+                  {t.footer.whatsapp}
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -139,6 +154,18 @@ export async function Footer() {
           </p>
         </div>
       </div>
+
+      {/* Floating WhatsApp enquiry button — bottom-right on every page */}
+      <a
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_PREFILL)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={t.footer.whatsapp}
+        title={t.footer.whatsapp}
+        className="fixed bottom-5 right-5 z-40 grid h-12 w-12 place-items-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105 hover:shadow-xl active:scale-95"
+      >
+        <MessageCircle size={24} strokeWidth={2} />
+      </a>
     </footer>
   );
 }

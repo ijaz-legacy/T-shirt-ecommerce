@@ -593,8 +593,9 @@ const en = {
     shipping: "Free delivery over {threshold}",
     returns: "7-day size exchange",
     contact: "Questions?",
-    contactText: "We're a small team. Write to us and we'll reply within a day.",
+    contactText: "We're a small team. Write to us or WhatsApp us and we'll reply within a day.",
     email: "theijazlegacy@gmail.com",
+    whatsapp: "Chat on WhatsApp",
     copyright: "© {year} IJAZ LEGACY. Made with care in Tamil Nadu.",
     tagline: "Wear your story.",
   },
@@ -1295,6 +1296,7 @@ const ta: Dictionary = {
     shipping: "{threshold}க்கு மேல் இலவச டெலிவரி",
     returns: "7 நாள் சைஸ் மாற்றம்",
     contact: "கேள்விகள்?",
+    whatsapp: "WhatsApp-ல் அனுப்பு",
     contactText:
       "நாங்கள் ஒரு சிறிய குழு. எங்களுக்கு எழுதுங்கள், ஒரு நாளுக்குள் பதிலளிக்கிறோம்.",
     email: "theijazlegacy@gmail.com",
