@@ -163,7 +163,7 @@ export const FULL_SCALE_THRESHOLD = 0.6;
 
 /** Store WhatsApp number for enquiries — international format, digits only.
  *  Change this one value to point every WhatsApp contact link at the shop. */
-export const WHATSAPP_NUMBER = "919999999999";
+export const WHATSAPP_NUMBER = "918754750458";
 
 /** Pre-filled message used when customers open a WhatsApp enquiry. */
 export const WHATSAPP_PREFILL =
