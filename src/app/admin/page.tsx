@@ -4,8 +4,10 @@ import {
   ArrowRight,
   Banknote,
   Clock3,
+  Package,
   PackageOpen,
   Shirt,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -97,6 +99,18 @@ export default async function AdminDashboardPage() {
           })}
           icon={Shirt}
           tone={stats.lowStockProducts > 0 ? "warn" : "default"}
+        />
+        <StatCard
+          label={t.admin.dashboard.totalDesigns}
+          value={String(stats.totalDesigns)}
+          hint={t.admin.dashboard.totalDesignsHint}
+          icon={Package}
+        />
+        <StatCard
+          label={t.admin.dashboard.totalUsers}
+          value={String(stats.totalUsers)}
+          hint={t.admin.dashboard.totalUsersHint}
+          icon={Users}
         />
       </div>
 

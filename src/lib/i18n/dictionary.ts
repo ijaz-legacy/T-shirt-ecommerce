@@ -431,6 +431,10 @@ const en = {
       lowStockEmpty: "Every active product has healthy stock.",
       lowStockCta: "Manage products",
       stockLeft: "{count} left",
+      totalDesigns: "Total designs",
+      totalDesignsHint: "Total custom designs saved across all users",
+      totalUsers: "Total users",
+      totalUsersHint: "Total customer accounts",
     },
     orders: {
       title: "Orders",
@@ -1128,6 +1132,10 @@ const ta: Dictionary = {
         "செயலில் உள்ள எல்லா தயாரிப்புகளுக்கும் நல்ல ஸ்டாக் உள்ளது.",
       lowStockCta: "தயாரிப்புகளை நிர்வகி",
       stockLeft: "{count} மீதம்",
+      totalDesigns: "Total designs",
+      totalDesignsHint: "Total custom designs saved across all users",
+      totalUsers: "Total users",
+      totalUsersHint: "Total customer accounts",
     },
     orders: {
       title: "ஆர்டர்கள்",
