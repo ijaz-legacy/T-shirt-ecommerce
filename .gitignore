@@ -10,3 +10,5 @@ vibe_images/
 next-env.d.ts
 tsconfig.tsbuildinfo
 .tmp-e2e/
+.freebuff/
+.tmp-dev.pid
