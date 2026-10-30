@@ -11,30 +11,26 @@ because InfinityFree only hosts PHP/MySQL. The free stack used here is:
 Product images are stored in the database as compressed WebP blobs, so there is no
 separate file-storage service to configure.
 
-## Why InfinityFree / htdocs will not work
+## Two builds live in this repository
 
-InfinityFree hosts **static files and PHP only**. It has no Node.js runtime, so it
-cannot execute this app. Uploading the build output into `htdocs` does not help,
-because the store is not a static site:
+| Build | Folder | Host | Needs |
+| --- | --- | --- | --- |
+| **PHP + MySQL** | `htdocs/` | InfinityFree (`htdocs`) | PHP 8, MySQL |
+| Next.js | `src/` | Netlify, Vercel, any Node host | Node 22, Turso |
 
-| What the store needs | Where it lives | Runs on InfinityFree? |
-| --- | --- | --- |
-| 19 API endpoints (login, orders, admin, uploads) | `src/app/api/**/route.ts` | No — needs Node |
-| Server-rendered pages (shop, cart, checkout, admin, track) | `src/app/**/page.tsx` | No — needs Node |
-| Session cookies, auth guards, locale middleware | `src/lib/session.ts`, `src/middleware.ts` | No — needs Node |
-| `sharp` image resizing and background removal | upload API routes | No — native Node module |
-| libSQL/Turso database client | `src/lib/db.ts` | No — Node client |
+The **PHP build is the one for InfinityFree**. Upload the contents of `htdocs/`
+to your `htdocs` folder and follow **[htdocs/README.md](htdocs/README.md)** — that
+file covers the database, the installer, and every page.
 
-Next.js `output: "export"` is not an escape hatch either: it refuses to build a
-project that contains API routes or dynamic server pages, which is all of the above.
+Why a separate build exists: InfinityFree hosts **PHP and static files only**. It
+has no Node.js runtime, so it cannot execute a Next.js app. Dropping the Next.js
+build output into `htdocs` does not work, because the store is not a static site —
+it has 19 API routes, server-rendered pages, session middleware, `sharp` for image
+resizing, and a libSQL client. Next.js `output: "export"` is not an escape hatch
+either: it refuses to build a project containing API routes or dynamic pages.
 
-Two workable choices:
-
-1. **Deploy the Next.js app on Netlify** (this document). No code changes, every
-   feature works, and the free plan permits commercial use within its limits.
-2. **Port the backend to PHP + MySQL** if you must stay on InfinityFree. That is a
-   rewrite of auth, orders, the admin console, and image handling — not a config
-   change.
+The rest of this document describes the **Next.js** deployment, which you do not
+need if you are deploying to InfinityFree.
 
 ## 1. Create the Turso database
 
