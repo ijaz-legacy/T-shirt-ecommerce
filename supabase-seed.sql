@@ -1,0 +1,13 @@
+-- Run this in Supabase SQL Editor to seed the 8 starter products
+-- Go to: Supabase Dashboard → SQL Editor → New query → paste → Run
+
+insert into products (slug, name_en, name_ta, desc_en, desc_ta, price, image, color_en, color_ta, color_hex, category, badge, featured, sort_order, stock, active, updated_at) values
+('kadal-dawn',   'Kadal Dawn',    'கடல் விடியல்',   'A retro sunrise over calm waves.',                          'அமைதியான அலைகள்மேல் ஒரு ரெட்ரோ சூரிய உதயம்.',             699,  '/images/products/kadal-dawn.webp',   'Sand',   'சாண்ட்',  '#D8C2A4', 'retro',    'bestseller', true,  1, 25, true, 0),
+('malai-mist',   'Malai Mist',    'மலை பனி',        'Minimal peak lines inspired by the Nilgiris.',              'நீலகிரியை நினைவூட்டும் எளிய மலைக் கோடுகள்.',              749,  '/images/products/malai-mist.webp',   'Black',  'கருப்பு', '#1C1B19', 'nature',   'new',        true,  2, 25, true, 0),
+('thulir',       'Thulir',        'துளிர்',          'Hand-drawn botanicals that feel like a window left open.',  'திறந்து வைத்த ஜன்னல் போல உணரவைக்கும் கைவரைந்த தாவரங்கள்.', 699, '/images/products/thulir.webp',       'Cream',  'கிரீம்',  '#F2E8D5', 'nature',   null,         false, 3, 25, true, 0),
+('alai',         'Alai',          'அலை',            'Endless waves in clean line work.',                         'நேர்த்தியான கோடுகளில் முடிவில்லா அலைகள்.',               749,  '/images/products/alai.webp',         'Navy',   'நேவி',    '#26374F', 'abstract', 'bestseller', false, 4, 25, true, 0),
+('puli',         'Puli',          'புலி',            'A bold tiger for the quietly fearless.',                    'அமைதியான தைரியசாலிகளுக்கு ஒரு துணிச்சலான புலி.',          799,  '/images/products/puli.webp',         'Olive',  'ஆலிவ்',   '#5A6349', 'street',   'limited',    true,  5, 25, true, 0),
+('legacy-1987',  'Legacy 1987',   'மரபு 1987',      'An abstract nod to 1987 — shapes, sun and a little nostalgia.', '1987-க்கு ஒரு அப்ஸ்ட்ராக்ட் அஞ்சலி.',              699,  '/images/products/legacy-1987.webp',  'White',  'வெள்ளை',  '#FFFFFF', 'abstract', 'new',        false, 6, 25, true, 0),
+('nilavu',       'Nilavu',        'நிலவு',           'Phases of the moon across a midnight tee.',                 'நள்ளிரவு நிற டீ முழுவதும் நிலவின் கலைகள்.',             749,  '/images/products/nilavu.webp',       'Black',  'கருப்பு', '#1C1B19', 'nature',   null,         false, 7, 25, true, 0),
+('veyil',        'Veyil',         'வெயில்',          'A warm arch of sunset colour.',                             'சூரிய அஸ்தமனத்தின் வெதுவெதுப்பான வளைவு.',               699,  '/images/products/veyil.webp',        'Sand',   'சாண்ட்',  '#D8C2A4', 'retro',    'limited',    true,  8, 25, true, 0)
+on conflict (slug) do nothing;
