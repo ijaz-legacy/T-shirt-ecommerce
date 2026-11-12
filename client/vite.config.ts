@@ -5,7 +5,10 @@ const API_TARGET = process.env.VITE_DEV_API_TARGET ?? 'http://localhost:4000'
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Absolute base: the SPA is served from the domain root and every deep
+  // link (/product/x, /orders/y) is rewritten to index.html by .htaccess,
+  // so a relative './assets/...' path would resolve under that route.
+  base: '/',
   server: {
     port: 5173,
     // The Express API in ../server runs on 4000. Same-origin /api calls in dev.
