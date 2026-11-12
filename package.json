@@ -2,24 +2,24 @@
   "name": "ijaz-store",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "description": "IJAZ LEGACY — fullstack printed & custom tee store (React SPA + Express API + Supabase Postgres)",
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.4",
-    "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:web": "npm run dev --workspace @ijaz/client",
+    "dev:api": "npm run dev --workspace @ijaz/server",
+    "build": "npm run build --workspace @ijaz/client",
+    "build:api": "npm run build --workspace @ijaz/server",
+    "start": "npm run start --workspace @ijaz/server",
+    "typecheck": "npm run typecheck --workspace @ijaz/server && npm run typecheck --workspace @ijaz/client"
   },
   "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

@@ -1,0 +1,73 @@
+/* IJAZ LEGACY — Global styles */
+:root {
+  --shell: #f7f2e9;
+  --paper: #fffdf9;
+  --ink: #171512;
+  --smoke: #6e6659;
+  --line: #e6ddcc;
+  --rust: #c8542f;
+  --rust-dark: #a9401f;
+  --gold: #e9b44c;
+  --moss: #59634c;
+  --font-sans: "DM Sans","Noto Sans Tamil",system-ui,sans-serif;
+  --font-display: "Bricolage Grotesque","Noto Sans Tamil",sans-serif;
+  --font-serif: "Instrument Serif",Georgia,serif;
+}
+
+*,*::before,*::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--shell);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+h1,h2,h3,h4 { font-family: var(--font-display); margin: 0; }
+p { margin: 0; }
+button { font-family: inherit; cursor: pointer; }
+input,select,textarea { font-family: inherit; }
+
+::selection { background: var(--gold); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; }
+
+/* Header: logo + actions stay on the first row and the nav scrolls sideways on
+   narrow screens instead of wrapping into a tall stack. */
+.site-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--smoke);
+}
+/* Narrow laptops/tablets: tighten the nav rather than wrapping the header. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .site-head { gap: 10px; }
+  .site-nav { gap: 10px; font-size: 12px; }
+}
+@media (max-width: 760px) {
+  .site-nav {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 18px;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+    scrollbar-width: none;
+  }
+  .site-nav::-webkit-scrollbar { display: none; }
+  .site-nav > a { flex: 0 0 auto; }
+}
