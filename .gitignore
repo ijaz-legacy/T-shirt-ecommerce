@@ -6,3 +6,6 @@ dist
 *.local
 *.log
 tsconfig.tsbuildinfo
+
+# Public production API URL (no secrets)
+!.env.production
