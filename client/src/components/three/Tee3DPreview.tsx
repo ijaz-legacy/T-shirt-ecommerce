@@ -9,7 +9,6 @@ import { getSticker, parsePlacementRef } from '../../lib/catalog'
 import type { StickerPlacement } from '../../lib/types'
 import { StickerArt } from '../tee/StickerArt'
 import { TEE_VIEW_H, TEE_VIEW_W } from '../tee/teeGeometry'
-import { STICKER_LIBRARY } from '../../lib/stickerLibrary'
 import { buildStickerCanvas, builtinArtwork } from './designTexture'
 
 /**
@@ -63,9 +62,9 @@ function placementLabel(p: StickerPlacement): string {
   if (p.ref.startsWith('text:')) return p.text?.content?.slice(0, 24) || 'Text'
   const parsed = parsePlacementRef(p.ref)
   if (parsed?.type === 'builtin') return getSticker(parsed.id).nameEn
-  const library = STICKER_LIBRARY.find((s) => s.src === p.ref)
-  if (library) return library.name
-  return 'Your image'
+  // Sticker artwork is served from the database, so its name isn't in the
+  // bundle — the 3D overlay only needs a readable label here.
+  return 'Artwork'
 }
 
 function contactShadowTexture(): THREE.CanvasTexture {

@@ -14,7 +14,7 @@ import {
   CUSTOM_PRICE_SMALL, CUSTOM_PRICE_MEDIUM, CUSTOM_PRICE_LARGE,
   type FitId, type Size, type TeeColorId, type StickerCategory,
 } from '../lib/catalog'
-import { STICKER_GROUPS, STICKER_LIBRARY } from '../lib/stickerLibrary'
+import { STICKER_GROUPS, toLibraryStickers } from '../lib/stickerLibrary'
 import type { CustomConfig, StickerPlacement } from '../lib/types'
 import { formatINR } from '../lib/currency'
 import { listDesigns, saveDesign } from '../lib/designs'
@@ -101,6 +101,8 @@ export default function Customize() {
   const unitPrice = calcCustomUnitPrice(fitId, scales)
   const total     = unitPrice * qty
   const sel       = selectedIdx !== null ? placements[selectedIdx] : null
+  // Sticker artwork comes from the database only (Admin → Stickers).
+  const libraryStickers = toLibraryStickers(dbStickers)
 
   // ── placements ────────────────────────────────────────────────────
   function addPlacement(ref: string, cat: StickerCategory = 'medium') {
@@ -619,7 +621,7 @@ export default function Customize() {
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8, marginTop: 8 }}>
-              {STICKER_LIBRARY.filter(s => s.category === stickerCat).map(s => {
+              {libraryStickers.filter(s => s.category === stickerCat).map(s => {
                 const placed = placements.some(p => p.ref === s.src && sideOf(p) === side)
                 return (
                   <button key={s.id} onClick={() => toggleSticker(s.src, s.category)} title={s.name}
@@ -639,29 +641,10 @@ export default function Customize() {
               })}
             </div>
 
-            {/* Extra stickers from the database, if any */}
-            {dbStickers.length > 0 && (
-              <>
-                <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--smoke)', marginTop: 14, marginBottom: 8 }}>Custom stickers</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8 }}>
-                  {dbStickers.map(s => {
-                    const placed = placements.some(p => p.ref === s.image_url && sideOf(p) === side)
-                    return (
-                      <button key={s.id} onClick={() => toggleSticker(s.image_url, (s.category as StickerCategory) || 'medium')}
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: 7, borderRadius: 14, border: `1px solid ${placed ? 'var(--ink)' : 'var(--line)'}`, background: placed ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative' }}>
-                        <span style={{ width: '100%', aspectRatio: '1', background: 'var(--shell)', borderRadius: 10, overflow: 'hidden', display: 'grid', placeItems: 'center', padding: 4 }}>
-                          <img src={s.image_url} alt={s.name_en} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        </span>
-                        <span style={{ fontSize: 9.5, fontWeight: 600 }}>{s.name_en}</span>
-                        {placed && <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: 'var(--ink)', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><Check size={10} color="#fff" /></span>}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p style={{ color: 'var(--smoke)', fontSize: 10.5, marginTop: 8, lineHeight: 1.45 }}>
-                  These come from the admin page on your site. Add them the same way — click to place, then drag, resize and rotate on the tee.
-                </p>
-              </>
+            {libraryStickers.filter(s => s.category === stickerCat).length === 0 && (
+              <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
+                No stickers in this category yet. Add artwork from Admin → Stickers and it shows up here.
+              </p>
             )}
           </Section>
 

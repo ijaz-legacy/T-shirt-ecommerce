@@ -308,11 +308,8 @@ export function parsePlacementRef(ref: string): PlacementRef | null {
   )
   if (match) return { type: "image", id: match[1] }
 
-  // Library artwork, uploaded files and inline (data URL) images are used
-  // directly as the image source.
-  // `./stickers/…` is how the sticker library references its artwork, so the
-  // relative form has to count as an image too — otherwise library stickers
-  // are dropped from the tee, the saved design and the 3D print.
+  // Database sticker artwork (Supabase Storage URLs), uploaded files and inline
+  // (data URL) images are used directly as the image source.
   if (
     ref.startsWith("/") ||
     ref.startsWith("./") ||
