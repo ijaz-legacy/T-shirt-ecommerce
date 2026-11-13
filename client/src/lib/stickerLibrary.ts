@@ -23,10 +23,14 @@ export interface StickerRow {
 }
 
 export const STICKER_GROUPS: { id: StickerCategory; label: string; hint: string }[] = [
-  { id: 'small', label: 'Logos & icons', hint: 'Small print · ₹59' },
-  { id: 'medium', label: 'Graphic designs', hint: 'Half A4 · ₹59' },
-  { id: 'large', label: 'Full print', hint: 'Full A4 · ₹100' },
+  { id: 'small', label: 'Logos & icons', hint: 'Small print · ₹49' },
+  { id: 'medium', label: 'Graphic designs', hint: 'Half A4 · ₹79' },
+  { id: 'large', label: 'Full print', hint: 'Full A4 · ₹119' },
 ]
+
+/** True when a placement ref points at sticker artwork rather than an upload. */
+export const isStickerRef = (ref: string): boolean =>
+  ref.includes('/stickers/') || ref.startsWith('./stickers/')
 
 const CATEGORIES: StickerCategory[] = ['small', 'medium', 'large']
 

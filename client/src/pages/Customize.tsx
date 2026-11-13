@@ -14,7 +14,7 @@ import {
   CUSTOM_PRICE_SMALL, CUSTOM_PRICE_MEDIUM, CUSTOM_PRICE_LARGE,
   type FitId, type Size, type TeeColorId, type StickerCategory,
 } from '../lib/catalog'
-import { STICKER_GROUPS, toLibraryStickers } from '../lib/stickerLibrary'
+import { STICKER_GROUPS, isStickerRef, toLibraryStickers } from '../lib/stickerLibrary'
 import type { CustomConfig, StickerPlacement } from '../lib/types'
 import { formatINR } from '../lib/currency'
 import { listDesigns, saveDesign } from '../lib/designs'
@@ -375,7 +375,7 @@ export default function Customize() {
             {sel && selectedIdx !== null && (() => {
               const info = getCategoryFromScale(sel.scale)
               const parsed = parsePlacementRef(sel.ref)
-              const label = sel.text ? `"${sel.text.content.slice(0, 14)}"` : parsed?.type === 'builtin' ? (getSticker(parsed.id)?.nameEn ?? 'Sticker') : 'Custom Image'
+              const label = sel.text ? `"${sel.text.content.slice(0, 14)}"` : parsed?.type === 'builtin' ? (getSticker(parsed.id)?.nameEn ?? 'Sticker') : isStickerRef(sel.ref) ? 'Sticker' : 'Custom Image'
               return (
                 <div style={{
                   marginTop: 10, padding: '10px 14px', borderRadius: 14,
@@ -449,7 +449,7 @@ export default function Customize() {
                   {placements.map((p, i) => {
                     const pInfo = getCategoryFromScale(p.scale)
                     const pParsed = parsePlacementRef(p.ref)
-                    const pName = p.text ? `Text "${p.text.content.slice(0, 12)}"` : pParsed?.type === 'builtin' ? (getSticker(pParsed.id)?.nameEn ?? 'Sticker') : 'Uploaded Photo'
+                    const pName = p.text ? `Text "${p.text.content.slice(0, 12)}"` : pParsed?.type === 'builtin' ? (getSticker(pParsed.id)?.nameEn ?? 'Sticker') : isStickerRef(p.ref) ? 'Sticker' : 'Uploaded Photo'
                     return (
                       <div key={p.id || i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--smoke)' }}>
                         <span>• {pName} ({pInfo.labelShort})</span>
