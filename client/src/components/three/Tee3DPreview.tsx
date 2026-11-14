@@ -103,12 +103,19 @@ export function Tee3DPreview({
   side = 'front',
   onSideChange,
   minimal = false,
+  onPoster,
 }: {
   colorHex: string
   placements: StickerPlacement[]
   height?: number
   /** Read-only thumbnail mode: hides the reset button, selection pill and hint bar. */
   minimal?: boolean
+  /**
+   * Called once with a PNG data URL of the rendered garment, a few frames after
+   * the model loads. Used to cache static thumbnails without keeping a live
+   * WebGL canvas per card.
+   */
+  onPoster?: (dataUrl: string) => void
   selectedIndex?: number | null
   onSelectPlacement?: (index: number | null) => void
   onMovePlacement?: (index: number, patch: Partial<StickerPlacement>) => void
@@ -136,6 +143,8 @@ export function Tee3DPreview({
   onMoveRef.current = onMovePlacement
   const sideRef = useRef<TeeSide>(side)
   sideRef.current = side
+  const onPosterRef = useRef(onPoster)
+  onPosterRef.current = onPoster
   const onSideChangeRef = useRef(onSideChange)
   onSideChangeRef.current = onSideChange
   const syncRef = useRef<() => void>(() => {})
@@ -682,7 +691,17 @@ export function Tee3DPreview({
         )
 
         setLoadState('ready')
-        void syncDecals()
+        // Capture straight after the decals land: requestAnimationFrame is
+        // paused in hidden/background windows, so posters can't wait for it.
+        void syncDecals().then(() => {
+          if (disposed) return
+          renderer.render(scene, camera)
+          const capture = onPosterRef.current
+          if (capture) {
+            onPosterRef.current = undefined
+            capture(canvas.toDataURL('image/png'))
+          }
+        })
       },
       undefined,
       (err) => {

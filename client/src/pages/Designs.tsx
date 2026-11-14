@@ -4,7 +4,7 @@ import { Pencil, ShoppingBag, Trash2, Zap, LayoutGrid, List, Search, Sparkles } 
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useLang } from '../context/LangContext'
-import { Tee3DPreview } from '../components/three/Tee3DPreview'
+import { DesignPoster } from '../components/three/DesignPoster'
 import { deleteDesign, listDesigns, type SavedDesign } from '../lib/designs'
 import { calcCustomUnitPrice, getFit, getTeeColor, getCategoryFromScale } from '../lib/catalog'
 import { formatINR } from '../lib/currency'
@@ -205,12 +205,12 @@ export default function Designs() {
                     }}
                     title="Click to edit in studio"
                   >
-                    <div style={{ width: 64, height: 64, pointerEvents: 'none' }}>
-                      <Tee3DPreview
+                    <div style={{ width: 64, height: 64 }}>
+                      <DesignPoster
+                        designId={d.id}
                         colorHex={getTeeColor(d.colorId).hex}
                         placements={d.placements}
                         height={64}
-                        minimal
                       />
                     </div>
                   </div>
@@ -338,12 +338,12 @@ export default function Designs() {
                   }}
                   title="Click to edit in studio"
                 >
-                  <div style={{ maxWidth: 210, margin: '0 auto', pointerEvents: 'none' }}>
-                    <Tee3DPreview
+                  <div style={{ maxWidth: 210, margin: '0 auto' }}>
+                    <DesignPoster
+                      designId={d.id}
                       colorHex={getTeeColor(d.colorId).hex}
                       placements={d.placements}
                       height={200}
-                      minimal
                     />
                   </div>
 
