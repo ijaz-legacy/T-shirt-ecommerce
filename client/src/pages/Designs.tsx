@@ -4,7 +4,7 @@ import { Pencil, ShoppingBag, Trash2, Zap, LayoutGrid, List, Search, Sparkles } 
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useLang } from '../context/LangContext'
-import { TeeCanvas } from '../components/custom/TeeCanvas'
+import { Tee3DPreview } from '../components/three/Tee3DPreview'
 import { deleteDesign, listDesigns, type SavedDesign } from '../lib/designs'
 import { calcCustomUnitPrice, getFit, getTeeColor, getCategoryFromScale } from '../lib/catalog'
 import { formatINR } from '../lib/currency'
@@ -206,12 +206,11 @@ export default function Designs() {
                     title="Click to edit in studio"
                   >
                     <div style={{ width: 64, height: 64, pointerEvents: 'none' }}>
-                      <TeeCanvas
-                        colorId={d.colorId}
+                      <Tee3DPreview
+                        colorHex={getTeeColor(d.colorId).hex}
                         placements={d.placements}
-                        selectedIndex={null}
-                        onSelect={() => {}}
-                        onMove={() => {}}
+                        height={64}
+                        minimal
                       />
                     </div>
                   </div>
@@ -339,13 +338,12 @@ export default function Designs() {
                   }}
                   title="Click to edit in studio"
                 >
-                  <div style={{ maxWidth: 190, margin: '0 auto', pointerEvents: 'none' }}>
-                    <TeeCanvas
-                      colorId={d.colorId}
+                  <div style={{ maxWidth: 210, margin: '0 auto', pointerEvents: 'none' }}>
+                    <Tee3DPreview
+                      colorHex={getTeeColor(d.colorId).hex}
                       placements={d.placements}
-                      selectedIndex={null}
-                      onSelect={() => {}}
-                      onMove={() => {}}
+                      height={200}
+                      minimal
                     />
                   </div>
 

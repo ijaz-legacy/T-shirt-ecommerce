@@ -102,10 +102,13 @@ export function Tee3DPreview({
   onMovePlacement,
   side = 'front',
   onSideChange,
+  minimal = false,
 }: {
   colorHex: string
   placements: StickerPlacement[]
   height?: number
+  /** Read-only thumbnail mode: hides the reset button, selection pill and hint bar. */
+  minimal?: boolean
   selectedIndex?: number | null
   onSelectPlacement?: (index: number | null) => void
   onMovePlacement?: (index: number, patch: Partial<StickerPlacement>) => void
@@ -972,7 +975,7 @@ export function Tee3DPreview({
         </div>
       )}
 
-      {selected && (
+      {selected && !minimal && (
         <span
           style={{
             position: 'absolute', left: 8, top: 8, maxWidth: '70%',
@@ -985,6 +988,7 @@ export function Tee3DPreview({
         </span>
       )}
 
+      {!minimal && (
       <button
         type="button"
         onClick={() => resetViewRef.current()}
@@ -1007,6 +1011,8 @@ export function Tee3DPreview({
       >
         <RotateCcw size={13} />
       </button>
+      )}
+      {!minimal && (
       <span
         style={{
           position: 'absolute',
@@ -1028,6 +1034,7 @@ export function Tee3DPreview({
       >
         Click sticker to resize & zoom · Drag corners to scale · Mouse wheel to zoom
       </span>
+      )}
     </div>
   )
 }

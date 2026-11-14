@@ -53,7 +53,6 @@ export default function Customize() {
   const [showTextModal, setShowTextModal] = useState(false)
   const [textDraft, setTextDraft] = useState('')
   const [cropFile, setCropFile]     = useState<File | null>(null)
-  const [stickerCat, setStickerCat] = useState<StickerCategory>('small')
   const [uploadNote, setUploadNote] = useState<string | null>(null)
   const [saveOpen, setSaveOpen]     = useState(false)
   const [designName, setDesignName] = useState('')
@@ -105,6 +104,10 @@ export default function Customize() {
   const libraryStickers = toLibraryStickers(dbStickers)
 
   // ── placements ────────────────────────────────────────────────────
+  /**
+   * Stickers start at medium and the customer resizes them on the tee; uploaded
+   * photos arrive with the print size chosen in the crop dialog.
+   */
   function addPlacement(ref: string, cat: StickerCategory = 'medium') {
     if (placements.length >= 10) { setNotice('Maximum 10 items per tee.'); return }
     const spot = SPOTS[placements.length % SPOTS.length]
@@ -125,10 +128,10 @@ export default function Customize() {
     setSelectedIdx(i => (i !== null && placements[i] && sideOf(placements[i]) !== next ? null : i))
   }
 
-  function toggleSticker(ref: string, cat: StickerCategory) {
+  function toggleSticker(ref: string) {
     const i = placements.findIndex(p => p.ref === ref && sideOf(p) === side)
     if (i >= 0) { setPlacements(c => c.filter((_, j) => j !== i)); if (selectedIdx === i) setSelectedIdx(null) }
-    else addPlacement(ref, cat)
+    else addPlacement(ref)
   }
 
   function updateP(idx: number, patch: Partial<StickerPlacement>) {
@@ -603,28 +606,15 @@ export default function Customize() {
           </Section>
 
           <Section title="Stickers & artwork" hint={`${placements.length} placed · max 10`}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {STICKER_GROUPS.map(g => (
-                <button key={g.id} onClick={() => setStickerCat(g.id)}
-                  style={{
-                    padding: '7px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${stickerCat === g.id ? 'var(--ink)' : 'var(--line)'}`,
-                    background: stickerCat === g.id ? 'var(--ink)' : 'var(--paper)',
-                    color: stickerCat === g.id ? 'var(--paper)' : 'var(--smoke)',
-                  }}>
-                  {g.label}
-                </button>
-              ))}
-            </div>
-            <p style={{ color: 'var(--smoke)', fontSize: 10.5, marginTop: 8 }}>
-              {STICKER_GROUPS.find(g => g.id === stickerCat)?.hint} · click a sticker to stick it on the <strong style={{ color: 'var(--ink)' }}>{side}</strong> of the tee, then drag it across the fabric — size and rotation are in the panel under the preview
+            <p style={{ color: 'var(--smoke)', fontSize: 10.5, marginTop: 2 }}>
+              Every sticker works at any size — click one to stick it on the <strong style={{ color: 'var(--ink)' }}>{side}</strong> of the tee, then resize it on the fabric. {STICKER_GROUPS.map(g => g.hint).join(' · ')}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8, marginTop: 8 }}>
-              {libraryStickers.filter(s => s.category === stickerCat).map(s => {
+              {libraryStickers.map(s => {
                 const placed = placements.some(p => p.ref === s.src && sideOf(p) === side)
                 return (
-                  <button key={s.id} onClick={() => toggleSticker(s.src, s.category)} title={s.name}
+                  <button key={s.id} onClick={() => toggleSticker(s.src)} title={s.name}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: 7, borderRadius: 14, border: `1px solid ${placed ? 'var(--ink)' : 'var(--line)'}`, background: placed ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: placed ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
                     <span style={{
                       width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden',
@@ -641,9 +631,9 @@ export default function Customize() {
               })}
             </div>
 
-            {libraryStickers.filter(s => s.category === stickerCat).length === 0 && (
+            {libraryStickers.length === 0 && (
               <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
-                No stickers in this category yet. Add artwork from Admin → Stickers and it shows up here.
+                No stickers yet. Add artwork from Admin → Stickers and it shows up here.
               </p>
             )}
           </Section>
