@@ -1,3 +1,5 @@
+// Network defaults first: the Supabase client below depends on them.
+import './lib/net.js'
 import { createApp } from './app.js'
 import { env } from './config/env.js'
 
@@ -7,7 +9,16 @@ const server = app.listen(env.port, () => {
   console.log(`[api] IJAZ LEGACY API listening on http://localhost:${env.port}`)
   console.log(`[api] health check: http://localhost:${env.port}/api/health`)
   console.log(`[api] allowed origins: ${env.corsOrigins.join(', ')}`)
+  console.log(`[api] supabase host: ${safeHost(env.supabaseUrl)} · node ${process.version}`)
 })
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return '(invalid SUPABASE_URL)'
+  }
+}
 
 function shutdown(signal: string): void {
   console.log(`[api] ${signal} received, closing server…`)

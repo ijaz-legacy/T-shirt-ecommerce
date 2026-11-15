@@ -1,6 +1,15 @@
 import { Router } from 'express'
 import { asyncRoute } from '../lib/http.js'
+import { env } from '../config/env.js'
 import { db, supabaseAdmin } from '../lib/supabase.js'
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return '(invalid SUPABASE_URL)'
+  }
+}
 
 export const healthRouter = Router()
 
@@ -19,7 +28,11 @@ healthRouter.get(
         error: error?.message ?? null,
         latencyMs: Math.round(latencyMs),
         mode: supabaseAdmin ? 'service-role' : 'anon (RLS enforced)',
+        // Host only — the URL and keys stay private. This is what tells you the
+        // deployment is pointed at the project you think it is.
+        host: safeHost(env.supabaseUrl),
       },
+      node: process.version,
     })
   }),
 )
