@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { asyncRoute } from '../lib/http.js'
-import { env } from '../config/env.js'
+import { env, supabaseUrlProblem } from '../config/env.js'
 import { db, supabaseAdmin } from '../lib/supabase.js'
 
 function safeHost(url: string): string {
@@ -31,8 +31,12 @@ healthRouter.get(
         // Host only — the URL and keys stay private. This is what tells you the
         // deployment is pointed at the project you think it is.
         host: safeHost(env.supabaseUrl),
+        configProblem: supabaseUrlProblem(),
       },
       node: process.version,
+      // Origins are public configuration, and a missing site origin here is the
+      // usual reason the browser blocks every API call in production.
+      corsOrigins: env.corsOrigins,
     })
   }),
 )

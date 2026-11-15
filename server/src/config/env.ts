@@ -49,6 +49,26 @@ export const env = {
     .filter(Boolean),
 } as const
 
+/**
+ * Catches the deployment mistake that looks like a database outage: the
+ * SUPABASE_URL still holding the value from .env.example. Requests to it fail
+ * with "fetch failed" after the connect timeout, which reads like Supabase is
+ * down when the real problem is a placeholder that has no DNS record.
+ */
+export function supabaseUrlProblem(): string | null {
+  if (!env.supabaseUrl) return 'SUPABASE_URL is empty'
+  let host: string
+  try {
+    host = new URL(env.supabaseUrl).hostname
+  } catch {
+    return 'SUPABASE_URL is not a valid URL'
+  }
+  if (/^(your-project|project-ref|abcde)/i.test(host) || host === 'example.supabase.co') {
+    return `SUPABASE_URL still points at the example host (${host}); set it to your real project URL`
+  }
+  return null
+}
+
 export function isOwnerEmail(email?: string | null): boolean {
   return !!email && env.ownerEmails.includes(email.toLowerCase())
 }

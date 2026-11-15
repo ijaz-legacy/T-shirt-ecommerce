@@ -1,7 +1,7 @@
 // Network defaults first: the Supabase client below depends on them.
 import './lib/net.js'
 import { createApp } from './app.js'
-import { env } from './config/env.js'
+import { env, supabaseUrlProblem } from './config/env.js'
 
 const app = createApp()
 
@@ -10,6 +10,8 @@ const server = app.listen(env.port, () => {
   console.log(`[api] health check: http://localhost:${env.port}/api/health`)
   console.log(`[api] allowed origins: ${env.corsOrigins.join(', ')}`)
   console.log(`[api] supabase host: ${safeHost(env.supabaseUrl)} · node ${process.version}`)
+  const problem = supabaseUrlProblem()
+  if (problem) console.error(`[api] CONFIGURATION PROBLEM: ${problem}`)
 })
 
 function safeHost(url: string): string {
