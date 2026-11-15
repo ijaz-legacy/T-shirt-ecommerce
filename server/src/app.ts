@@ -25,8 +25,11 @@ export function createApp(): Express {
   app.use(
     cors({
       origin(origin, callback) {
-        // Same-origin/curl requests have no Origin header.
-        if (!origin || env.corsOrigins.includes(origin)) {
+        // Same-origin/curl requests have no Origin header. "*" means the
+        // allow-list is deliberately open; without this a deployment set to
+        // CORS_ORIGINS=* sent no CORS header at all and the browser blocked
+        // every call, which looks identical to a server that is down.
+        if (!origin || env.corsOrigins.includes('*') || env.corsOrigins.includes(origin)) {
           callback(null, true)
           return
         }

@@ -37,6 +37,7 @@ healthRouter.get(
       // Origins are public configuration, and a missing site origin here is the
       // usual reason the browser blocks every API call in production.
       corsOrigins: env.corsOrigins,
+      corsOpen: env.corsOrigins.includes('*'),
     })
   }),
 )
