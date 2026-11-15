@@ -16,10 +16,13 @@ function toNumber(v: unknown): number {
 
 const STATUS_COLORS: Record<string, string> = {
   placed:     '#fff6de',
-  processing: '#e9eefb',
+  confirmed:  '#fdf0d5',
+  packed:     '#e9eefb',
   shipped:    '#e6f2f6',
   delivered:  '#e9f3e6',
   cancelled:  '#fbeae6',
+  // Older rows were written with this label before the statuses were unified.
+  processing: '#e9eefb',
 }
 
 export default function Orders() {

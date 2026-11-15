@@ -375,7 +375,9 @@ export interface AdminOrder {
   id: string
   order_number: string
   user_id: string | null
-  status: 'placed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  // Mirrors ORDER_STATUSES in server/src/services/order.service.ts. The API
+  // validates this enum, so a status the client invents is rejected with 400.
+  status: 'placed' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled'
   customer_name: string
   phone: string
   address1: string

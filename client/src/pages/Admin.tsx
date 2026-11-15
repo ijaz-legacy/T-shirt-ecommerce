@@ -435,6 +435,8 @@ function ReadError({ message }: { message: string }) {
 
 const ORDER_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   placed:     { bg: '#fff6de', text: '#8c5e00', border: '#e6d08a' },
+  confirmed:  { bg: '#fdf0d5', text: '#8c5e00', border: '#e6d08a' },
+  packed:     { bg: '#e9eefb', text: '#1e40af', border: '#b8cbee' },
   processing: { bg: '#e9eefb', text: '#1e40af', border: '#b8cbee' },
   shipped:    { bg: '#e6f2f6', text: '#0e7490', border: '#a5d7e8' },
   delivered:  { bg: '#e9f3e6', text: '#15803d', border: '#b2deb1' },
@@ -445,7 +447,7 @@ function OrdersPanel() {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'placed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'>('all')
+  const [filter, setFilter] = useState<'all' | 'placed' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled'>('all')
   const [search, setSearch] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [statusDraft, setStatusDraft] = useState<Record<string, string>>({})
@@ -487,7 +489,7 @@ function OrdersPanel() {
     const cleanPhone = order.phone.replace(/[^0-9]/g, '')
     const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone
     const trackUrl = `${window.location.origin}/track`
-    const statusMsg = order.status === 'processing'
+    const statusMsg = order.status === 'packed'
       ? 'is now being printed & packed in our studio 🎨'
       : order.status === 'shipped'
       ? 'has left our studio and is on its way to you! 🚚'
@@ -517,7 +519,8 @@ function OrdersPanel() {
   const counts = {
     all: orders.length,
     placed: orders.filter(o => o.status === 'placed').length,
-    processing: orders.filter(o => o.status === 'processing').length,
+    confirmed: orders.filter(o => o.status === 'confirmed').length,
+    packed: orders.filter(o => o.status === 'packed').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
@@ -530,7 +533,7 @@ function OrdersPanel() {
         {[
           { label: 'All Orders', count: counts.all, color: 'var(--ink)' },
           { label: 'New Placed', count: counts.placed, color: '#8c5e00' },
-          { label: 'In Printing', count: counts.processing, color: '#1e40af' },
+          { label: 'In Printing', count: counts.packed, color: '#1e40af' },
           { label: 'Shipped', count: counts.shipped, color: '#0e7490' },
           { label: 'Delivered', count: counts.delivered, color: '#15803d' },
         ].map((stat, i) => (
@@ -550,7 +553,7 @@ function OrdersPanel() {
       {/* Toolbar: Filters & Search */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(['all', 'placed', 'processing', 'shipped', 'delivered', 'cancelled'] as const).map(tab => (
+          {(['all', 'placed', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
@@ -723,8 +726,9 @@ function OrdersPanel() {
                         background: 'var(--paper)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer'
                       }}
                     >
-                      <option value="placed">Placed (Confirmed)</option>
-                      <option value="processing">Processing (In Printing & Packing)</option>
+                      <option value="placed">Placed (New order)</option>
+                      <option value="confirmed">Confirmed (Accepted)</option>
+                      <option value="packed">Packed (In Printing & Packing)</option>
                       <option value="shipped">Shipped (Dispatched)</option>
                       <option value="delivered">Delivered</option>
                       <option value="cancelled">Cancelled</option>

@@ -1,0 +1,55 @@
+# Render blueprint for the IJAZ LEGACY API.
+#
+# This versions the build, start command and the *names* of every environment
+# variable the API needs, so a new Render service no longer depends on someone
+# remembering the dashboard settings. Secret values are never stored here:
+# `sync: false` makes Render prompt for them when the blueprint is applied.
+#
+# NOTE: a service created by hand in the dashboard is not converted by adding
+# this file. To use it, create the service from this blueprint (New → Blueprint)
+# and delete the old one, or copy these values into the existing service.
+services:
+  - type: web
+    name: ijaz-legacy-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci && npm run build:api
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # The API refuses to start in production without a service-role key.
+      - key: NODE_ENV
+        value: production
+
+      # Node 22 LTS: the API only needs >=18, but pinning avoids a surprise
+      # runtime upgrade on the host's default.
+      - key: NODE_VERSION
+        value: 22.11.0
+
+      # Render terminates TLS in front of the app; 1 hop makes req.ip the real
+      # client so the per-IP rate limit does not lump every visitor together.
+      - key: TRUST_PROXY
+        value: "1"
+
+      - key: SUPABASE_STORAGE_BUCKET
+        value: client-images
+
+      # Comma-separated browser origins allowed to call the API. Keep the
+      # deployed site origin last, and never add localhost here.
+      - key: CORS_ORIGINS
+        value: https://ijazlegacy-tshirts.freedev.app
+
+      - key: OWNER_EMAILS
+        value: theijazlegacy@gmail.com,ijazlegacy@gmail.com
+
+      # Supabase → Project Settings → API. Prompted on apply, never committed.
+      # SUPABASE_URL must be the real project URL; leaving the example value
+      # from .env.example makes every query fail with "fetch failed".
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

@@ -17,8 +17,9 @@ function toNumber(v: unknown): number {
 
 interface StatusEvent { id: string; status: string; note: string | null; created_at: number }
 const STATUS_LABELS: Record<string, string> = {
-  placed: 'Order placed', processing: 'Processing', shipped: 'Shipped',
-  delivered: 'Delivered', cancelled: 'Cancelled',
+  placed: 'Order placed', confirmed: 'Confirmed', packed: 'Printing & packing',
+  shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
+  processing: 'Printing & packing',
 }
 
 export default function OrderDetail() {

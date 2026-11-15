@@ -8,24 +8,30 @@ import { formatINR } from '../lib/currency'
 
 const STATUS_TEXT: Record<string, string> = {
   placed:     "We've received your COD order and reserved your tee.",
+  confirmed:  "Your order is confirmed and queued for printing.",
+  packed:     "Your custom tee is printed, packed and waiting for pickup.",
   processing: "Your custom tee is being printed and packed with care in our studio.",
   shipped:    "Your order has been handed to our courier partner and is on its way to you.",
   delivered:  "Delivered! We hope you love the fit and quality.",
   cancelled:  "This order was cancelled.",
 }
 
+// One step per status the API can set, so any status the shop produces has a
+// visible position on the tracker.
 const STEPS = [
-  { key: 'placed', label: 'Order Placed', desc: 'Received & Confirmed', icon: CheckCircle2 },
-  { key: 'processing', label: 'Printing & Packing', desc: 'Custom studio print', icon: Package },
+  { key: 'placed', label: 'Order Placed', desc: 'Received', icon: CheckCircle2 },
+  { key: 'confirmed', label: 'Confirmed', desc: 'Order accepted', icon: CheckCircle2 },
+  { key: 'packed', label: 'Printing & Packing', desc: 'Custom studio print', icon: Package },
   { key: 'shipped', label: 'Dispatched', desc: 'On the way', icon: Truck },
   { key: 'delivered', label: 'Delivered', desc: 'At your doorstep', icon: Check },
 ]
 
 function getStepIndex(status: string): number {
   if (status === 'placed') return 0
-  if (status === 'processing') return 1
-  if (status === 'shipped') return 2
-  if (status === 'delivered') return 3
+  if (status === 'confirmed') return 1
+  if (status === 'packed' || status === 'processing') return 2
+  if (status === 'shipped') return 3
+  if (status === 'delivered') return 4
   return -1 // cancelled or unknown
 }
 
