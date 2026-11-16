@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bookmark, Check, Crop, Move, RotateCcw, Shirt, Trash2, Type, Upload, ZoomIn, ZoomOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -14,7 +14,7 @@ import {
   CUSTOM_PRICE_SMALL, CUSTOM_PRICE_MEDIUM, CUSTOM_PRICE_LARGE,
   type FitId, type Size, type TeeColorId, type StickerCategory,
 } from '../lib/catalog'
-import { STICKER_GROUPS, isStickerRef, toLibraryStickers } from '../lib/stickerLibrary'
+import { STICKER_GROUPS, isStickerRef, toLibraryStickers, type LibrarySticker } from '../lib/stickerLibrary'
 import type { CustomConfig, StickerPlacement } from '../lib/types'
 import { formatINR } from '../lib/currency'
 import { listDesigns, saveDesign } from '../lib/designs'
@@ -101,7 +101,18 @@ export default function Customize() {
   const total     = unitPrice * qty
   const sel       = selectedIdx !== null ? placements[selectedIdx] : null
   // Sticker artwork comes from the database only (Admin → Stickers).
-  const libraryStickers = toLibraryStickers(dbStickers)
+  const libraryStickers = useMemo(() => toLibraryStickers(dbStickers), [dbStickers])
+
+  // The palette has ~50 tiles. Recomputing "is this placed?" and re-rendering
+  // every tile on each pointermove made dragging feel laggy, so the set is
+  // keyed on the placed refs only — it keeps its identity while a sticker is
+  // being moved and the memoised palette below skips the render entirely.
+  const placedKey = placements.filter(p => (p.side ?? 'front') === side).map(p => p.ref).join('|')
+  const placedSet = useMemo(
+    () => new Set(placements.filter(p => (p.side ?? 'front') === side).map(p => p.ref)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [placedKey],
+  )
 
   // ── placements ────────────────────────────────────────────────────
   /**
@@ -144,6 +155,10 @@ export default function Customize() {
       return next
     }))
   }
+
+  // Stable handler identity so the memoised palette never re-renders on drag.
+  const toggleStickerRef = useRef(toggleSticker)
+  toggleStickerRef.current = toggleSticker
 
   function removeP(idx: number) {
     setPlacements(c => c.filter((_, i) => i !== idx))
@@ -610,26 +625,7 @@ export default function Customize() {
               Every sticker works at any size — click one to stick it on the <strong style={{ color: 'var(--ink)' }}>{side}</strong> of the tee, then resize it on the fabric. {STICKER_GROUPS.map(g => g.hint).join(' · ')}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8, marginTop: 8 }}>
-              {libraryStickers.map(s => {
-                const placed = placements.some(p => p.ref === s.src && sideOf(p) === side)
-                return (
-                  <button key={s.id} onClick={() => toggleSticker(s.src)} title={s.name}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: 7, borderRadius: 14, border: `1px solid ${placed ? 'var(--ink)' : 'var(--line)'}`, background: placed ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: placed ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
-                    <span style={{
-                      width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden',
-                      display: 'grid', placeItems: 'center', padding: 5,
-                      background: 'repeating-conic-gradient(#f1eadf 0% 25%, #fffdf9 0% 50%) 50% / 12px 12px',
-                    }}>
-                      <img src={s.src} alt={s.name} loading="lazy"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    </span>
-                    <span style={{ fontSize: 9.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{s.name}</span>
-                    {placed && <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: 'var(--ink)', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><Check size={10} color="#fff" /></span>}
-                  </button>
-                )
-              })}
-            </div>
+            <StickerPalette stickers={libraryStickers} placed={placedSet} onToggle={toggleStickerRef} />
 
             {libraryStickers.length === 0 && (
               <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
@@ -1139,6 +1135,46 @@ function ImageCropEditor({
     </div>
   )
 }
+
+/**
+ * The sticker grid, memoised.
+ *
+ * Dragging a sticker on the tee updates `placements` many times a second. The
+ * palette only cares about *which* refs are placed, so it takes that set plus a
+ * ref-stable click handler and skips re-rendering while a sticker moves.
+ */
+const StickerPalette = memo(function StickerPalette({
+  stickers,
+  placed,
+  onToggle,
+}: {
+  stickers: LibrarySticker[]
+  placed: Set<string>
+  onToggle: { current: (ref: string) => void }
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8, marginTop: 8 }}>
+      {stickers.map(s => {
+        const isPlaced = placed.has(s.src)
+        return (
+          <button key={s.id} onClick={() => onToggle.current(s.src)} title={s.name}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: 7, borderRadius: 14, border: `1px solid ${isPlaced ? 'var(--ink)' : 'var(--line)'}`, background: isPlaced ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: isPlaced ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
+            <span style={{
+              width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden',
+              display: 'grid', placeItems: 'center', padding: 5,
+              background: 'repeating-conic-gradient(#f1eadf 0% 25%, #fffdf9 0% 50%) 50% / 12px 12px',
+            }}>
+              <img src={s.src} alt={s.name} loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </span>
+            <span style={{ fontSize: 9.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{s.name}</span>
+            {isPlaced && <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: 'var(--ink)', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><Check size={10} color="#fff" /></span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+})
 
 function ColorPicker({ label, value, onChange, colors }: { label: string; value: string; onChange: (c: string) => void; colors: string[] }) {
   return (

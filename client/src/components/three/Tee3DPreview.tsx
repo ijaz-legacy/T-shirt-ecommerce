@@ -91,6 +91,12 @@ type DecalEntry = {
   sig: string
   artSig: string
   index: number
+  /** Surface point the decal was projected at, so a drag can translate it. */
+  point: [number, number, number]
+  /** Surface normal there, reused instead of re-raycasting the garment. */
+  normal: [number, number, number]
+  size: number
+  rot: number
 }
 
 export function Tee3DPreview({
@@ -306,6 +312,22 @@ export function Tee3DPreview({
     const pickables: THREE.Mesh[] = []
     const entries = new Map<string, DecalEntry>()
     let syncToken = 0
+    // Set while a sticker is being dragged on the tee (declared here because
+    // syncDecals below takes a cheaper path when it is active).
+    let drag: { index: number; pointerId: number } | null = null
+    // Live position under the pointer while dragging. The decal and the
+    // selection box follow this directly, so moving a sticker never re-renders
+    // the studio — the final position is committed on pointerup.
+    let dragPoint: { point: THREE.Vector3; normal: THREE.Vector3 } | null = null
+    // The surface point under the pointer when the drag started. Dragging slides
+    // along its tangent plane, which is a few arithmetic operations instead of a
+    // raycast against the whole merged garment (~90 ms per move on a laptop).
+    let dragPlane: THREE.Plane | null = null
+
+    const entryAtIndex = (index: number): DecalEntry | undefined => {
+      for (const entry of entries.values()) if (entry.index === index) return entry
+      return undefined
+    }
 
     const keyFor = (p: StickerPlacement, index: number) => p.id ?? `i${index}:${p.ref}`
 
@@ -387,6 +409,25 @@ export function Tee3DPreview({
           continue
         }
 
+        // Dragging: translating the already-projected decal is enough. Rebuilding
+        // DecalGeometry on every pointermove is what made the studio feel laggy;
+        // the exact projection is restored on pointerup.
+        if (
+          existing &&
+          drag &&
+          drag.index === index &&
+          existing.artSig === artSig &&
+          Math.abs(existing.size - size) < 1e-4 &&
+          existing.rot === p.rotation
+        ) {
+          const previous = new THREE.Vector3().fromArray(existing.point)
+          existing.mesh.position.add(anchor.point.clone().sub(previous))
+          existing.point = anchor.point.toArray()
+          existing.sig = sig
+          existing.index = index
+          continue
+        }
+
         // Only re-rasterise the artwork when the artwork itself changed.
         const agent = existing && existing.artSig === artSig ? null : await buildStickerCanvas(p, builtin.get(index))
         if (token !== syncToken) return
@@ -435,7 +476,11 @@ export function Tee3DPreview({
           if (existing.texture !== texture) existing.texture.dispose()
         }
         decalGroup.add(decal)
-        entries.set(key, { mesh: decal, texture, sig, artSig, index })
+        entries.set(key, {
+          mesh: decal, texture, sig, artSig, index,
+          point: anchor.point.toArray(), normal: anchor.normal.toArray(),
+          size, rot: p.rotation,
+        })
       }
 
       for (const [key, entry] of [...entries]) {
@@ -461,7 +506,6 @@ export function Tee3DPreview({
       raycaster.setFromCamera(ndc, camera)
       return true
     }
-    let drag: { index: number; pointerId: number } | null = null
     let lastMove = 0
 
     const onPointerDown = (event: PointerEvent) => {
@@ -469,10 +513,11 @@ export function Tee3DPreview({
       if (!pointerRay(event)) return
 
       let hitIndex: number | null = null
+      let hitEntry: DecalEntry | undefined
       const decalHit = raycaster.intersectObjects(decalList(), false)[0]
       if (decalHit) {
         const entry = entries.get(String(decalHit.object.userData.key ?? ''))
-        if (entry) hitIndex = entry.index
+        if (entry) { hitIndex = entry.index; hitEntry = entry }
       }
       if (hitIndex === null) {
         // Fallback: check if clicking on the t-shirt surface near a sticker
@@ -503,6 +548,21 @@ export function Tee3DPreview({
       } catch {
         /* pointer capture is best-effort */
       }
+      // Clicking the decal itself needs no raycast: its stored point and normal
+      // are exactly where it sits on the fabric.
+      const startPoint = hitEntry
+        ? new THREE.Vector3().fromArray(hitEntry.point)
+        : null
+      const startNormal = hitEntry
+        ? new THREE.Vector3().fromArray(hitEntry.normal)
+        : null
+      const startAnchor = startPoint && startNormal ? null : resolveAnchor(placementsRef.current[hitIndex])
+      const anchorPoint = startPoint ?? startAnchor?.point
+      const anchorNormal = startNormal ?? startAnchor?.normal
+      if (anchorPoint && anchorNormal) {
+        dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(anchorNormal, anchorPoint)
+        dragPoint = { point: anchorPoint.clone(), normal: anchorNormal.clone() }
+      }
       drag = { index: hitIndex, pointerId: event.pointerId }
       onSelectRef.current?.(hitIndex)
     }
@@ -512,24 +572,51 @@ export function Tee3DPreview({
       const now = performance.now()
       if (now - lastMove < 16) return
       lastMove = now
-      if (!pointerRay(event)) return
-      const hit = raycaster.intersectObjects(pickables, false)[0]
-      if (!hit) return
-      const point = hit.point
-      const normal = worldNormalOf(hit)
-      onMoveRef.current?.(drag.index, {
-        x: pctX(point),
-        y: pctY(point),
-        side: sideRef.current,
-        decal: { point: [point.x, point.y, point.z], normal: [normal.x, normal.y, normal.z] },
-      })
+      if (!pointerRay(event) || !dragPlane) return
+      const point = new THREE.Vector3()
+      if (!raycaster.ray.intersectPlane(dragPlane, point)) return
+      // Keep the anchor on the plane for the next move (no drifting).
+      dragPlane.setFromNormalAndCoplanarPoint(dragPlane.normal, point)
+      dragPoint = { point, normal: dragPlane.normal.clone() }
+
+      const entry = entryAtIndex(drag.index)
+      if (entry) {
+        entry.mesh.position.add(point.clone().sub(new THREE.Vector3().fromArray(entry.point)))
+        entry.point = point.toArray()
+      }
+      updateOverlay()
     }
 
     const onPointerUp = (event: PointerEvent) => {
       if (!drag || event.pointerId !== drag.pointerId) return
+      const { index } = drag
+      // Project the drop onto the real surface once, so the saved position is
+      // accurate even after sliding across a curved part of the garment.
+      const hit = pointerRay(event) ? raycaster.intersectObjects(pickables, false)[0] : undefined
+      const landed = hit
+        ? { point: hit.point.clone(), normal: worldNormalOf(hit) }
+        : dragPoint
       drag = null
+      dragPoint = null
+      dragPlane = null
       controls.enabled = true
       if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+
+      // One state update per drag, not one per frame: the studio only needs the
+      // final position, and syncDecals then re-projects it properly.
+      if (landed) {
+        onMoveRef.current?.(index, {
+          x: pctX(landed.point),
+          y: pctY(landed.point),
+          side: sideRef.current,
+          decal: {
+            point: [landed.point.x, landed.point.y, landed.point.z],
+            normal: [landed.normal.x, landed.normal.y, landed.normal.z],
+          },
+        })
+      } else {
+        syncRef.current()
+      }
     }
     canvas.addEventListener('pointerdown', onPointerDown, true)
     canvas.addEventListener('pointermove', onPointerMove)
@@ -569,15 +656,28 @@ export function Tee3DPreview({
         el.style.display = 'none'
         return
       }
-      const anchor = resolveAnchor(p)
-      if (!anchor) {
+      // While dragging, the box follows the pointer directly — no raycast, no
+      // dependency on the (still unchanged) placement state.
+      const live = drag?.index === selIdx ? dragPoint : null
+      // A placement that has been projected already knows its point and normal,
+      // so the per-frame box update never needs to raycast the garment.
+      const cached = live || !p.decal
+        ? null
+        : {
+            point: new THREE.Vector3().fromArray(p.decal.point),
+            normal: new THREE.Vector3().fromArray(p.decal.normal),
+          }
+      const anchor = live || cached ? null : resolveAnchor(p)
+      if (!live && !anchor) {
         el.style.display = 'none'
         return
       }
+      const anchorPoint = (live ?? cached ?? anchor)!.point
+      const anchorNormal = (live ?? cached ?? anchor)!.normal
       // Hide if decal is on the back or facing away from camera
-      const pos = anchor.point.clone()
+      const pos = anchorPoint.clone()
       const camDir = camera.position.clone().sub(pos).normalize()
-      if (anchor.normal.dot(camDir) < 0.1) {
+      if (anchorNormal.dot(camDir) < 0.1) {
         el.style.display = 'none'
         return
       }
@@ -589,7 +689,7 @@ export function Tee3DPreview({
       }
       const cx = (pos.x * 0.5 + 0.5) * rect.width
       const cy = (-pos.y * 0.5 + 0.5) * rect.height
-      const dist = camera.position.distanceTo(anchor.point)
+      const dist = camera.position.distanceTo(anchorPoint)
       const vFovRad = (camera.fov * Math.PI) / 180
       const pixelsPerUnit = rect.height / (2 * Math.tan(vFovRad / 2) * dist)
       const size = decalSize(p)
@@ -714,6 +814,7 @@ export function Tee3DPreview({
 
     let frame = 0
     let lastFrame = performance.now()
+    let lastOverlayAt = 0
     const tick = () => {
       const now = performance.now()
       const dt = Math.min(0.05, (now - lastFrame) / 1000)
@@ -727,7 +828,12 @@ export function Tee3DPreview({
       }
       controls.update()
       renderer.render(scene, camera)
-      updateOverlay()
+      // The selection box follows the camera; ~8 updates a second is plenty and
+      // keeps the raycast fallback off the render loop. Dragging is per-frame.
+      if (drag || now - lastOverlayAt > 120) {
+        updateOverlay()
+        lastOverlayAt = now
+      }
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
