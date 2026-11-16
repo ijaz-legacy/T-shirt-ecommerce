@@ -329,6 +329,44 @@ export function Tee3DPreview({
       return undefined
     }
 
+    // While a sticker moves, its projected decal geometry would poke through the
+    // garment (the decal is cut to the fabric it was projected onto). So the
+    // real decal is hidden during the drag and a flat ghost carrying the same
+    // artwork follows the pointer; the projection is rebuilt on release.
+    let ghost: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null
+    const ghostGeometry = new THREE.PlaneGeometry(1, 1)
+
+    const startGhost = (entry: DecalEntry, size: number) => {
+      endGhost()
+      const material = new THREE.MeshBasicMaterial({
+        map: entry.texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        opacity: 0.92,
+      })
+      ghost = new THREE.Mesh(ghostGeometry, material)
+      ghost.renderOrder = 20
+      ghost.scale.set(size, size, 1)
+      decalGroup.add(ghost)
+      entry.mesh.visible = false
+    }
+
+    const moveGhost = (point: THREE.Vector3, rotationDeg: number) => {
+      if (!ghost) return
+      ghost.position.copy(point)
+      ghost.quaternion.copy(camera.quaternion)
+      ghost.rotateZ(-THREE.MathUtils.degToRad(rotationDeg))
+    }
+
+    function endGhost() {
+      if (!ghost) return
+      decalGroup.remove(ghost)
+      ghost.material.dispose()
+      ghost = null
+    }
+
     const keyFor = (p: StickerPlacement, index: number) => p.id ?? `i${index}:${p.ref}`
 
     const decalSize = (p: StickerPlacement) => {
@@ -563,6 +601,9 @@ export function Tee3DPreview({
         dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(anchorNormal, anchorPoint)
         dragPoint = { point: anchorPoint.clone(), normal: anchorNormal.clone() }
       }
+      const dragging = hitEntry ?? entryAtIndex(hitIndex)
+      const draggedPlacement = placementsRef.current[hitIndex]
+      if (dragging && draggedPlacement) startGhost(dragging, decalSize(draggedPlacement))
       drag = { index: hitIndex, pointerId: event.pointerId }
       onSelectRef.current?.(hitIndex)
     }
@@ -583,6 +624,7 @@ export function Tee3DPreview({
       if (entry) {
         entry.mesh.position.add(point.clone().sub(new THREE.Vector3().fromArray(entry.point)))
         entry.point = point.toArray()
+        moveGhost(point, placementsRef.current[drag.index]?.rotation ?? 0)
       }
       updateOverlay()
     }
@@ -596,6 +638,9 @@ export function Tee3DPreview({
       const landed = hit
         ? { point: hit.point.clone(), normal: worldNormalOf(hit) }
         : dragPoint
+      const released = entryAtIndex(index)
+      endGhost()
+      if (released) released.mesh.visible = true
       drag = null
       dragPoint = null
       dragPlane = null
@@ -668,7 +713,7 @@ export function Tee3DPreview({
             normal: new THREE.Vector3().fromArray(p.decal.normal),
           }
       const anchor = live || cached ? null : resolveAnchor(p)
-      if (!live && !anchor) {
+      if (!live && !cached && !anchor) {
         el.style.display = 'none'
         return
       }
@@ -872,6 +917,8 @@ export function Tee3DPreview({
           material.dispose()
         }
       })
+      endGhost()
+      ghostGeometry.dispose()
       shadowTexture.dispose()
       renderer.dispose()
       if (canvas.parentNode === host) host.removeChild(canvas)

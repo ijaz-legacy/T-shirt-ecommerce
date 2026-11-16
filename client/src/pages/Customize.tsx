@@ -626,6 +626,11 @@ export default function Customize() {
             </p>
 
             <StickerPalette stickers={libraryStickers} placed={placedSet} onToggle={toggleStickerRef} />
+            {libraryStickers.length > 8 && (
+              <p style={{ color: 'var(--smoke)', fontSize: 10.5, marginTop: 6 }}>
+                {libraryStickers.length} stickers — scroll the grid for more. Your own photo and text are just below.
+              </p>
+            )}
 
             {libraryStickers.length === 0 && (
               <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
@@ -1153,7 +1158,22 @@ const StickerPalette = memo(function StickerPalette({
   onToggle: { current: (ref: string) => void }
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))', gap: 8, marginTop: 8 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill,minmax(84px,1fr))',
+        gap: 8,
+        marginTop: 8,
+        // 47+ stickers pushed "Your own photo" and "Text" off the screen, so
+        // the grid scrolls inside its own box and those sections stay reachable.
+        maxHeight: 268,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        paddingRight: 4,
+        paddingBottom: 2,
+      }}
+      aria-label="Sticker library — scroll for more"
+    >
       {stickers.map(s => {
         const isPlaced = placed.has(s.src)
         return (
