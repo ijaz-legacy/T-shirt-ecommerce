@@ -189,7 +189,11 @@ export function Tee3DPreview({
     canvas.style.display = 'block'
     canvas.style.width = '100%'
     canvas.style.height = '100%'
-    canvas.style.touchAction = 'none'
+    // orbit controls write touch-action: none, which traps page scrolling on a
+    // phone because the tee fills most of the screen. On touch devices a
+    // vertical swipe now scrolls the page and a sideways swipe spins the tee.
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+    canvas.style.touchAction = coarsePointer ? 'pan-y' : 'none'
     host.appendChild(canvas)
 
     const teeGroup = new THREE.Group()
@@ -230,6 +234,8 @@ export function Tee3DPreview({
     controls.rotateSpeed = 0.85
     controls.target.set(0, 0, 0)
     controlsRef.current = controls
+    // OrbitControls resets this to "none" in its constructor.
+    canvas.style.touchAction = coarsePointer ? 'pan-y' : 'none'
 
     let bounds = { size: new THREE.Vector3(2.4, 3.4, 1.2), centre: new THREE.Vector3() }
 

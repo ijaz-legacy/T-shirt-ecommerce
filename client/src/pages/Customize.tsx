@@ -1196,6 +1196,10 @@ const StickerPalette = memo(function StickerPalette({
   placed: Set<string>
   onToggle: { current: (ref: string) => void }
 }) {
+  // A row can exist in the database while its file is missing or empty (one
+  // upload landed as a 0-byte object). Those tiles show as unavailable instead
+  // of an invisible/broken image.
+  const [failed, setFailed] = useState<Record<string, boolean>>({})
   return (
     <div
       style={{
@@ -1207,7 +1211,10 @@ const StickerPalette = memo(function StickerPalette({
         // the grid scrolls inside its own box and those sections stay reachable.
         maxHeight: 268,
         overflowY: 'auto',
-        overscrollBehavior: 'contain',
+        // No overscroll containment: on a phone the page must keep scrolling
+        // once the grid reaches its end.
+        overscrollBehavior: 'auto',
+        WebkitOverflowScrolling: 'touch',
         paddingRight: 4,
         paddingBottom: 2,
       }}
@@ -1215,16 +1222,25 @@ const StickerPalette = memo(function StickerPalette({
     >
       {stickers.map(s => {
         const isPlaced = placed.has(s.src)
+        const missing = !!failed[s.src]
         return (
-          <button key={s.id} onClick={() => onToggle.current(s.src)} title={s.name} className="sticker-tile"
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 8, borderRadius: 16, border: `1px solid ${isPlaced ? 'var(--ink)' : 'var(--line)'}`, background: isPlaced ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: isPlaced ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
+          <button key={s.id} onClick={() => { if (!missing) onToggle.current(s.src) }} title={missing ? `${s.name} — image missing, re-upload it in Admin → Stickers` : s.name} className="sticker-tile" disabled={missing}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 8, borderRadius: 16, border: `1px solid ${isPlaced ? 'var(--ink)' : 'var(--line)'}`, background: isPlaced ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: missing ? 'not-allowed' : 'pointer', position: 'relative', outline: isPlaced ? '1px solid var(--ink)' : 'none', outlineOffset: -1, opacity: missing ? 0.75 : 1 }}>
             <span style={{
               width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden',
               display: 'grid', placeItems: 'center', padding: 5,
-              background: 'repeating-conic-gradient(#f1eadf 0% 25%, #fffdf9 0% 50%) 50% / 12px 12px',
+              background: missing
+                ? 'repeating-linear-gradient(45deg, #f6efe4 0 8px, #fffdf9 8px 16px)'
+                : 'repeating-conic-gradient(#f1eadf 0% 25%, #fffdf9 0% 50%) 50% / 12px 12px',
             }}>
-              <img src={s.src} alt={s.name} loading="lazy"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              {missing ? (
+                <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--smoke)', textAlign: 'center', lineHeight: 1.3 }}>
+                  No image
+                </span>
+              ) : (
+                <img src={s.src} alt={s.name} loading="lazy" onError={() => setFailed(f => ({ ...f, [s.src]: true }))}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
             </span>
             <span style={{ fontSize: 10.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.25, letterSpacing: '-0.01em' }}>{s.name}</span>
             {isPlaced && <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: 'var(--ink)', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><Check size={10} color="#fff" /></span>}
