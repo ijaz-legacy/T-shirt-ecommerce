@@ -4,7 +4,7 @@ import { Bookmark, Check, Crop, Move, RotateCcw, Shirt, Trash2, Type, Upload, Zo
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useLang } from '../context/LangContext'
-import { Tee3DPreview, type TeeSide } from '../components/three/Tee3DPreview'
+import { Tee3DPreview, type TeeSide, type PlacementAction } from '../components/three/Tee3DPreview'
 import { CropModal, type CropResult } from '../components/custom/CropModal'
 import { supabase } from '../lib/supabase'
 import {
@@ -55,6 +55,9 @@ export default function Customize() {
   const [cropFile, setCropFile]     = useState<File | null>(null)
   const [uploadNote, setUploadNote] = useState<string | null>(null)
   const [saveOpen, setSaveOpen]     = useState(false)
+  // Which placement the "Edit details" dialog is open for (opened from the ⋯
+  // menu on the selection border, not from a panel under the tee).
+  const [editIdx, setEditIdx]       = useState<number | null>(null)
   const [designName, setDesignName] = useState('')
   const [saveMsg, setSaveMsg]       = useState<string | null>(null)
   const [saving, setSaving]         = useState(false)
@@ -159,6 +162,29 @@ export default function Customize() {
   // Stable handler identity so the memoised palette never re-renders on drag.
   const toggleStickerRef = useRef(toggleSticker)
   toggleStickerRef.current = toggleSticker
+
+  /** Actions from the ⋯ menu on the selected image, and from the keyboard. */
+  function handlePlacementAction(action: PlacementAction, index: number) {
+    const p = placements[index]
+    if (!p) return
+    if (action === 'delete') { removeP(index); return }
+    if (action === 'edit') { setEditIdx(index); return }
+    if (action === 'duplicate') {
+      if (placements.length >= 10) { setNotice('Maximum 10 items per tee.'); return }
+      const copy: StickerPlacement = { ...p, id: uid(), x: Math.min(99, p.x + 6), y: Math.min(99, p.y + 6) }
+      delete copy.decal
+      setPlacements(c => [...c, copy])
+      setSelectedIdx(placements.length)
+      return
+    }
+    if (action === 'rotate90') {
+      const next = (((p.rotation + 90) % 360) + 540) % 360 - 180
+      updateP(index, { rotation: next })
+      return
+    }
+    if (action === 'reset') { updateP(index, { scale: 32, rotation: 0 }); return }
+    if (action === 'center') { updateP(index, { x: 50, y: 50 }); return }
+  }
 
   function removeP(idx: number) {
     setPlacements(c => c.filter((_, i) => i !== idx))
@@ -322,6 +348,29 @@ export default function Customize() {
         </div>
       )}
 
+      {/* Edit details dialog, opened from the ⋯ menu on the selection */}
+      {editIdx !== null && placements[editIdx] && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 55, display: 'grid', placeItems: 'center', background: 'rgba(23,21,18,.55)', padding: 16 }}
+          onClick={() => setEditIdx(null)}
+        >
+          <div style={{ width: '100%', maxWidth: 460, maxHeight: '86vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <PlacementPanel
+              placement={placements[editIdx]}
+              index={editIdx}
+              onChange={updateP}
+              onRemove={i => { removeP(i); setEditIdx(null) }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button onClick={() => setEditIdx(null)}
+                style={{ padding: '10px 22px', borderRadius: 999, background: 'var(--ink)', color: 'var(--paper)', border: 0, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload: crop, position, then place */}
       {cropFile && (
         <CropModal
@@ -397,6 +446,7 @@ export default function Customize() {
               selectedIndex={selectedIdx}
               onSelectPlacement={setSelectedIdx}
               onMovePlacement={updateP}
+              onPlacementAction={handlePlacementAction}
               side={side}
               onSideChange={changeSide}
             />
@@ -581,15 +631,8 @@ export default function Customize() {
             )}
           </div>
 
-          {/* Selected element editor */}
-          {sel && selectedIdx !== null && (
-            <PlacementPanel
-              placement={sel}
-              index={selectedIdx}
-              onChange={updateP}
-              onRemove={removeP}
-            />
-          )}
+          {/* Options live in the ⋯ menu on the image itself (a dialog), so
+              nothing is pushed below the tee. */}
         </div>
 
         {/* ── Right: every editable, always visible ────────────────── */}

@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
+import { MoreHorizontal, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { getSticker, parsePlacementRef } from '../../lib/catalog'
 import type { StickerPlacement } from '../../lib/types'
 import { StickerArt } from '../tee/StickerArt'
@@ -31,6 +31,9 @@ const UP_Z = new THREE.Vector3(0, 0, 1)
 const Z_AXIS = new THREE.Vector3(0, 0, 1)
 
 export type TeeSide = 'front' | 'back'
+
+/** Actions offered by the selection's ⋯ menu. */
+export type PlacementAction = 'edit' | 'duplicate' | 'rotate90' | 'reset' | 'center' | 'delete'
 
 /** Shirt shoulder-to-shoulder width in the 2D viewBox (see teeGeometry). */
 const TEE_WIDTH_IN_VIEW = 332
@@ -110,6 +113,7 @@ export function Tee3DPreview({
   onSideChange,
   minimal = false,
   onPoster,
+  onPlacementAction,
 }: {
   colorHex: string
   placements: StickerPlacement[]
@@ -129,6 +133,8 @@ export function Tee3DPreview({
   side?: TeeSide
   /** Fired when the customer spins the tee round to the other face. */
   onSideChange?: (side: TeeSide) => void
+  /** Selection menu / keyboard actions (edit, duplicate, rotate, delete …). */
+  onPlacementAction?: (action: PlacementAction, index: number) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -153,6 +159,8 @@ export function Tee3DPreview({
   onPosterRef.current = onPoster
   const onSideChangeRef = useRef(onSideChange)
   onSideChangeRef.current = onSideChange
+  const onActionRef = useRef(onPlacementAction)
+  onActionRef.current = onPlacementAction
   const syncRef = useRef<() => void>(() => {})
   const selectionRef = useRef<() => void>(() => {})
   const syncSideRef = useRef<(side: TeeSide) => void>(() => {})
@@ -164,8 +172,13 @@ export function Tee3DPreview({
     preview: (index: number, p: StickerPlacement) => void
     clear: (index: number) => void
   } | null>(null)
+  /** Keyboard nudging moves the decal itself, in percent of the tee's width. */
+  const nudgeRef = useRef<(dxPct: number, dyPct: number) => void>(() => {})
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const guideXRef = useRef<HTMLDivElement>(null)
+  const guideYRef = useRef<HTMLDivElement>(null)
 
   // ── scene, model, camera, lights, controls loop ─────────────────
   useEffect(() => {
@@ -327,7 +340,13 @@ export function Tee3DPreview({
     let syncToken = 0
     // Set while a sticker is being dragged on the tee (declared here because
     // syncDecals below takes a cheaper path when it is active).
-    let drag: { index: number; pointerId: number } | null = null
+    let drag: {
+      index: number
+      pointerId: number
+      startX: number
+      startY: number
+      moved: boolean
+    } | null = null
     // Live position under the pointer while dragging. The decal and the
     // selection box follow this directly, so moving a sticker never re-renders
     // the studio — the final position is committed on pointerup.
@@ -382,6 +401,29 @@ export function Tee3DPreview({
 
     // Resizing / rotating from the handles uses the same ghost: the decal is
     // rebuilt once on release instead of on every pointermove.
+    nudgeRef.current = (dxPct, dyPct) => {
+      const index = selectedRef.current
+      if (index === null) return
+      const entry = entryAtIndex(index)
+      if (!entry) return
+      const perX = (TEE_VIEW_W * (bounds.size.x / TEE_WIDTH_IN_VIEW)) / 100
+      const perY = (TEE_VIEW_H * (bounds.size.y / TEE_HEIGHT_IN_VIEW)) / 100
+      const point = new THREE.Vector3().fromArray(entry.point)
+      point.x += dxPct * perX
+      point.y += dyPct * perY
+      // Arrow-key nudging also sticks to the centre lines.
+      if (dxPct !== 0 && Math.abs(point.x - bounds.centre.x) < perX) point.x = bounds.centre.x
+      if (dyPct !== 0 && Math.abs(point.y - bounds.centre.y) < perY) point.y = bounds.centre.y
+      entry.mesh.position.add(point.clone().sub(new THREE.Vector3().fromArray(entry.point)))
+      entry.point = point.toArray()
+      onMoveRef.current?.(index, {
+        x: pctX(point),
+        y: pctY(point),
+        side: sideRef.current,
+        decal: { point: point.toArray(), normal: entry.normal },
+      })
+    }
+
     ghostControlRef.current = {
       preview(index, p) {
         const entry = entryAtIndex(index)
@@ -636,21 +678,44 @@ export function Tee3DPreview({
         dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(anchorNormal, anchorPoint)
         dragPoint = { point: anchorPoint.clone(), normal: anchorNormal.clone() }
       }
-      const dragging = hitEntry ?? entryAtIndex(hitIndex)
-      const draggedPlacement = placementsRef.current[hitIndex]
-      if (dragging && draggedPlacement) startGhost(dragging, decalSize(draggedPlacement))
-      drag = { index: hitIndex, pointerId: event.pointerId }
+      // Clicking only selects: the sticker must not move until the pointer
+      // actually travels, otherwise a plain tap re-anchors it somewhere else.
+      drag = {
+        index: hitIndex,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+      }
       onSelectRef.current?.(hitIndex)
     }
 
     const onPointerMove = (event: PointerEvent) => {
       if (!drag || event.pointerId !== drag.pointerId) return
+      if (!drag.moved) {
+        const travelled = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY)
+        if (travelled < 4) return
+        drag.moved = true
+        const entry = entryAtIndex(drag.index)
+        const placement = placementsRef.current[drag.index]
+        if (entry && placement) startGhost(entry, decalSize(placement))
+      }
       const now = performance.now()
       if (now - lastMove < 16) return
       lastMove = now
       if (!pointerRay(event) || !dragPlane) return
       const point = new THREE.Vector3()
       if (!raycaster.ray.intersectPlane(dragPlane, point)) return
+
+      // Word/PowerPoint-style centre snapping: within ~2% of the middle the
+      // sticker clicks onto the centre line and a guide appears.
+      const nearCentreX = Math.abs(pctX(point) - 50) <= 2
+      const nearCentreY = Math.abs(pctY(point) - 50) <= 2
+      if (nearCentreX) point.x = bounds.centre.x
+      if (nearCentreY) point.y = bounds.centre.y
+      if (guideXRef.current) guideXRef.current.style.opacity = nearCentreX ? '1' : '0'
+      if (guideYRef.current) guideYRef.current.style.opacity = nearCentreY ? '1' : '0'
+
       // Keep the anchor on the plane for the next move (no drifting).
       dragPlane.setFromNormalAndCoplanarPoint(dragPlane.normal, point)
       dragPoint = { point, normal: dragPlane.normal.clone() }
@@ -666,16 +731,19 @@ export function Tee3DPreview({
 
     const onPointerUp = (event: PointerEvent) => {
       if (!drag || event.pointerId !== drag.pointerId) return
-      const { index } = drag
+      const { index, moved } = drag
       // Project the drop onto the real surface once, so the saved position is
       // accurate even after sliding across a curved part of the garment.
-      const hit = pointerRay(event) ? raycaster.intersectObjects(pickables, false)[0] : undefined
-      const landed = hit
+      // A tap that never travelled commits nothing.
+      const hit = moved && pointerRay(event) ? raycaster.intersectObjects(pickables, false)[0] : undefined
+      const landed = !moved ? null : hit
         ? { point: hit.point.clone(), normal: worldNormalOf(hit) }
         : dragPoint
       const released = entryAtIndex(index)
       endGhost()
       if (released) released.mesh.visible = true
+      if (guideXRef.current) guideXRef.current.style.opacity = '0'
+      if (guideYRef.current) guideYRef.current.style.opacity = '0'
       drag = null
       dragPoint = null
       dragPlane = null
@@ -934,6 +1002,7 @@ export function Tee3DPreview({
       selectionRef.current = () => {}
       syncSideRef.current = () => {}
       resetViewRef.current = () => {}
+      nudgeRef.current = () => {}
       ghostControlRef.current = null
       bodyMatsRef.current = []
       for (const entry of entries.values()) {
@@ -959,6 +1028,42 @@ export function Tee3DPreview({
       renderer.dispose()
       if (canvas.parentNode === host) host.removeChild(canvas)
     }
+  }, [])
+
+  // Close the ⋯ menu on an outside click.
+  useEffect(() => {
+    if (!menuAt) return
+    const close = () => setMenuAt(null)
+    const id = window.setTimeout(() => document.addEventListener('pointerdown', close), 0)
+    return () => { window.clearTimeout(id); document.removeEventListener('pointerdown', close) }
+  }, [menuAt])
+
+  // ── keyboard: arrows move the selected item, Delete removes it ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const idx = selectedRef.current
+      if (idx === null || !onActionRef.current) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        onActionRef.current('delete', idx)
+        return
+      }
+      const step = e.shiftKey ? 5 : 1
+      const delta =
+        e.key === 'ArrowLeft' ? [-step, 0] :
+        e.key === 'ArrowRight' ? [step, 0] :
+        e.key === 'ArrowUp' ? [0, -step] :
+        e.key === 'ArrowDown' ? [0, step] :
+        null
+      if (!delta) return
+      e.preventDefault()
+      nudgeRef.current(delta[0], delta[1])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // ── tee colour (material only, never geometry) ──────────────────
@@ -1169,7 +1274,85 @@ export function Tee3DPreview({
         <div onPointerDown={handleCornerDown} title="Drag to resize" style={{ position: 'absolute', top: '100%', left: '50%', width: 11, height: 11, borderRadius: '50%', background: '#FFFFFF', border: '2px solid #0078D4', transform: 'translate(-50%, -50%)', cursor: 'ns-resize', pointerEvents: 'auto', touchAction: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', zIndex: 37 }} />
         <div onPointerDown={handleCornerDown} title="Drag to resize" style={{ position: 'absolute', top: '50%', left: 0, width: 11, height: 11, borderRadius: '50%', background: '#FFFFFF', border: '2px solid #0078D4', transform: 'translate(-50%, -50%)', cursor: 'ew-resize', pointerEvents: 'auto', touchAction: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', zIndex: 37 }} />
         <div onPointerDown={handleCornerDown} title="Drag to resize" style={{ position: 'absolute', top: '50%', left: '100%', width: 11, height: 11, borderRadius: '50%', background: '#FFFFFF', border: '2px solid #0078D4', transform: 'translate(-50%, -50%)', cursor: 'ew-resize', pointerEvents: 'auto', touchAction: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', zIndex: 37 }} />
+
+        {/* ⋯ options for this image, on the border like Word/PowerPoint */}
+        <button
+          type="button"
+          aria-label="Image options"
+          title="Image options"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => {
+            e.stopPropagation()
+            const host = hostRef.current
+            const box = overlayRef.current
+            if (!host || !box) return
+            const hr = host.getBoundingClientRect()
+            const br = box.getBoundingClientRect()
+            setMenuAt({ x: br.right - hr.left, y: br.top - hr.top })
+          }}
+          style={{
+            position: 'absolute', top: -12, right: -12, width: 24, height: 24,
+            display: 'grid', placeItems: 'center', borderRadius: '50%',
+            background: '#0078D4', color: '#fff', border: '2px solid #fff',
+            cursor: 'pointer', pointerEvents: 'auto', touchAction: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)', zIndex: 41,
+          }}
+        >
+          <MoreHorizontal size={14} />
+        </button>
       </div>
+
+      {/* Centre guides — shown while dragging near the middle */}
+      <div ref={guideXRef} aria-hidden="true" style={{
+        position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1,
+        background: 'rgba(0,120,212,0.55)', opacity: 0, transition: 'opacity .1s ease',
+        pointerEvents: 'none', zIndex: 30,
+      }} />
+      <div ref={guideYRef} aria-hidden="true" style={{
+        position: 'absolute', left: 0, right: 0, top: '50%', height: 1,
+        background: 'rgba(0,120,212,0.55)', opacity: 0, transition: 'opacity .1s ease',
+        pointerEvents: 'none', zIndex: 30,
+      }} />
+
+      {menuAt && selectedIndex !== null && (
+        <div
+          role="menu"
+          onPointerDown={e => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: Math.max(8, Math.min(menuAt.x - 190, (hostRef.current?.clientWidth ?? 320) - 198)),
+            top: Math.min(menuAt.y + 16, (hostRef.current?.clientHeight ?? 400) - 250),
+            width: 190, padding: 6, borderRadius: 14,
+            background: '#fffdf9', border: '1px solid var(--line)',
+            boxShadow: '0 20px 44px -24px rgba(23,21,18,.7)', zIndex: 60,
+          }}
+        >
+          {([
+            ['edit', 'Edit details'],
+            ['duplicate', 'Duplicate'],
+            ['rotate90', 'Rotate 90°'],
+            ['center', 'Centre on tee'],
+            ['reset', 'Reset size'],
+            ['delete', 'Delete'],
+          ] as const).map(([action, label]) => (
+            <button
+              key={action}
+              role="menuitem"
+              onClick={() => { setMenuAt(null); onActionRef.current?.(action, selectedIndex) }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px',
+                borderRadius: 9, border: 0, background: 'transparent', cursor: 'pointer',
+                fontSize: 12.5, fontWeight: 600,
+                color: action === 'delete' ? 'var(--rust)' : 'var(--ink)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--shell)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <div
         ref={hiddenRef}
         aria-hidden="true"
