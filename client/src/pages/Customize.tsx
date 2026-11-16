@@ -332,25 +332,37 @@ export default function Customize() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, letterSpacing: '-0.025em' }}>Design your tee</h1>
-          <p style={{ color: 'var(--smoke)', fontSize: 13, marginTop: 4 }}>
-            Fit, colour, stickers, your own photo and text — all on one page.
-          </p>
+      <div style={{ marginBottom: 22 }}>
+        <p style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--rust)' }}>
+          Custom studio
+        </p>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(26px, 3.4vw, 34px)', letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: 6 }}>
+              Design your tee
+            </h1>
+            <p style={{ color: 'var(--smoke)', fontSize: 13.5, marginTop: 8, maxWidth: 540, lineHeight: 1.6 }}>
+              Pick a fit, colour and size, then add stickers, a photo or text. Drag anything on the tee to move it,
+              pull a corner to resize — the price updates as you go.
+            </p>
+          </div>
+          {placements.length > 0 && (
+            <button onClick={clearAll}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--smoke)', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer' }}>
+              Clear all ({placements.length})
+            </button>
+          )}
         </div>
-        {placements.length > 0 && (
-          <button onClick={clearAll} style={{ fontSize: 12.5, color: 'var(--smoke)', background: 'none', border: 0, textDecoration: 'underline', cursor: 'pointer' }}>
-            Clear all ({placements.length})
-          </button>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))', gap: 22, alignItems: 'start' }}>
 
         {/* ── Left: live tee + checkout ───────────────────────────── */}
         <div className="studio-stage">
-          <div style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 22, padding: 12 }}>
+          <div style={{
+            background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 24, padding: 14,
+            boxShadow: '0 1px 2px rgba(23,21,18,.04), 0 24px 48px -40px rgba(23,21,18,.55)',
+          }}>
             {/* Front / back switch — artwork sticks to the face you are viewing */}
             <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--shell)', borderRadius: 999, marginBottom: 10 }}>
               {(['front', 'back'] as const).map(s => {
@@ -451,16 +463,16 @@ export default function Customize() {
                   </span>
                 ))}
               </div>
-              <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--smoke)', marginTop: 6 }}>
-                Drag the tee to spin · Click & drag sticker to move · Zoom to resize & change price
+              <p style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--smoke)', marginTop: 8, lineHeight: 1.5 }}>
+                Drag the tee to spin · drag a sticker to move it · pull a corner to resize
               </p>
             </div>
 
             {/* Price breakdown at bottom */}
             <div style={{ borderTop: '1px solid var(--line)', marginTop: 10, paddingTop: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--smoke)', marginBottom: 4 }}>
-                <span>{fit.nameEn} Tee ({size || 'M'})</span>
-                <span style={{ fontWeight: 600 }}>{formatINR(fit.price)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--smoke)', marginBottom: 6 }}>
+                <span>{fit.nameEn} tee ({size || 'M'})</span>
+                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{formatINR(fit.price)}</span>
               </div>
               {placements.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
@@ -469,7 +481,7 @@ export default function Customize() {
                     const pParsed = parsePlacementRef(p.ref)
                     const pName = p.text ? `Text "${p.text.content.slice(0, 12)}"` : pParsed?.type === 'builtin' ? (getSticker(pParsed.id)?.nameEn ?? 'Sticker') : isStickerRef(p.ref) ? 'Sticker' : 'Uploaded Photo'
                     return (
-                      <div key={p.id || i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--smoke)' }}>
+                      <div key={p.id || i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--smoke)' }}>
                         <span>• {pName} ({pInfo.labelShort})</span>
                         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>+{formatINR(pInfo.price)}</span>
                       </div>
@@ -477,9 +489,12 @@ export default function Customize() {
                   })}
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 6, borderTop: '1px dashed var(--line)' }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700 }}>Total Price</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: 'var(--ink)' }}>{formatINR(total)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 10, marginTop: 4, borderTop: '1px dashed var(--line)' }}>
+                <div>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, display: 'block' }}>Total price</span>
+                  <span style={{ fontSize: 10.5, color: 'var(--smoke)' }}>Inclusive of printing · COD</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{formatINR(total)}</span>
               </div>
             </div>
 
@@ -506,10 +521,10 @@ export default function Customize() {
               <button
                 onClick={handleBuyNow}
                 style={{
-                  padding: '13px 12px', borderRadius: 999, background: 'var(--rust)', color: '#fff',
-                  border: 0, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  minHeight: 46, padding: '13px 16px', borderRadius: 999, background: 'var(--rust)', color: '#fff',
+                  border: 0, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  boxShadow: '0 2px 8px rgba(200,84,47,.25)', transition: 'transform 0.1s ease',
+                  boxShadow: '0 6px 16px -8px rgba(200,84,47,.7)', transition: 'transform 0.1s ease',
                 }}
               >
                 Buy now
@@ -518,10 +533,10 @@ export default function Customize() {
                 onClick={handleAddToYourDesign}
                 disabled={saving}
                 style={{
-                  padding: '13px 12px', borderRadius: 999, background: 'var(--ink)', color: 'var(--paper)',
-                  border: 0, fontWeight: 700, fontSize: 13.5, cursor: 'pointer',
+                  minHeight: 46, padding: '13px 16px', borderRadius: 999, background: 'var(--ink)', color: 'var(--paper)',
+                  border: 0, fontWeight: 700, fontSize: 14, letterSpacing: '-0.01em', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  boxShadow: '0 2px 6px rgba(23,21,18,.15)',
+                  boxShadow: '0 6px 16px -10px rgba(23,21,18,.75)', opacity: saving ? .7 : 1,
                 }}
               >
                 <Bookmark size={14} />
@@ -607,7 +622,7 @@ export default function Customize() {
           </Section>
 
           <Section title="Tee colour" hint={lang === 'ta' ? color.nameTa : color.nameEn}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(64px,1fr))', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(58px,1fr))', gap: 8 }}>
               {TEE_COLORS.map(c => (
                 <button key={c.id} onClick={() => setColorId(c.id)}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 8, borderRadius: 14, border: `1px solid ${colorId === c.id ? 'var(--ink)' : 'var(--line)'}`, background: colorId === c.id ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', outline: colorId === c.id ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
@@ -648,7 +663,7 @@ export default function Customize() {
                 ? <><span style={{ width: 14, height: 14, border: '2px solid var(--ink)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.6s linear infinite' }} />Uploading…</>
                 : <><Upload size={14} />Upload an image</>}
             </button>
-            <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 8 }}>
+            <p style={{ color: 'var(--smoke)', fontSize: 11.5, marginTop: 9, lineHeight: 1.5 }}>
               PNG, JPG or WebP · drag to position, zoom to crop, then pick the print size
             </p>
             {uploadNote && <p style={{ color: 'var(--smoke)', fontSize: 10.5, marginTop: 4 }}>{uploadNote}</p>}
@@ -659,7 +674,7 @@ export default function Customize() {
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 999, border: '1px solid var(--ink)', background: 'var(--paper)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', opacity: placements.length >= 10 ? .5 : 1 }}>
               <Type size={14} />Add text
             </button>
-            <p style={{ color: 'var(--smoke)', fontSize: 11, marginTop: 8 }}>
+            <p style={{ color: 'var(--smoke)', fontSize: 11.5, marginTop: 9, lineHeight: 1.5 }}>
               Names, numbers, slogans — fonts and colours in the editor panel
             </p>
           </Section>
@@ -671,12 +686,23 @@ export default function Customize() {
         /* Desktop keeps the tee pinned beside the options. Once the page is a
            single column the card must scroll with the page — a sticky card
            taller than the viewport would cover the Fit/Size/Colour sections. */
-        .studio-stage { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+        .studio-stage { position: sticky; top: 20px; }
         @media (max-width: 760px) {
-          .studio-stage { position: static; top: auto; max-height: none; overflow: visible; }
+          .studio-stage { position: static; top: auto; }
         }
         @media (max-width: 780px) {
           .tee-extra { display: none !important; }
+        }
+        .sticker-tile { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+        .sticker-tile:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px -14px rgba(23,21,18,.6);
+          border-color: #cbbfae;
+        }
+        .sticker-tile:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+          .sticker-tile { transition: none; }
+          .sticker-tile:hover { transform: none; }
         }
       `}</style>
     </div>
@@ -686,12 +712,25 @@ export default function Customize() {
 // ── Section wrapper ───────────────────────────────────────────────────
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 22, padding: 18 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16 }}>{title}</h2>
-        {hint && <span style={{ fontSize: 11, color: 'var(--smoke)', textAlign: 'right' }}>{hint}</span>}
+    <section style={{
+      background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 20, padding: 18,
+      boxShadow: '0 1px 2px rgba(23,21,18,.03), 0 18px 34px -34px rgba(23,21,18,.5)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15.5, letterSpacing: '-0.01em' }}>
+          {title}
+        </h2>
+        {hint && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: 'var(--smoke)', background: 'var(--shell)', border: '1px solid var(--line)',
+            padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+          }}>
+            {hint}
+          </span>
+        )}
       </div>
-      <div style={{ marginTop: 12 }}>{children}</div>
+      <div style={{ marginTop: 14 }}>{children}</div>
     </section>
   )
 }
@@ -1177,8 +1216,8 @@ const StickerPalette = memo(function StickerPalette({
       {stickers.map(s => {
         const isPlaced = placed.has(s.src)
         return (
-          <button key={s.id} onClick={() => onToggle.current(s.src)} title={s.name}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: 7, borderRadius: 14, border: `1px solid ${isPlaced ? 'var(--ink)' : 'var(--line)'}`, background: isPlaced ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: isPlaced ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
+          <button key={s.id} onClick={() => onToggle.current(s.src)} title={s.name} className="sticker-tile"
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 8, borderRadius: 16, border: `1px solid ${isPlaced ? 'var(--ink)' : 'var(--line)'}`, background: isPlaced ? 'rgba(23,21,18,.03)' : 'var(--paper)', cursor: 'pointer', position: 'relative', outline: isPlaced ? '1px solid var(--ink)' : 'none', outlineOffset: -1 }}>
             <span style={{
               width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden',
               display: 'grid', placeItems: 'center', padding: 5,
@@ -1187,7 +1226,7 @@ const StickerPalette = memo(function StickerPalette({
               <img src={s.src} alt={s.name} loading="lazy"
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </span>
-            <span style={{ fontSize: 9.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{s.name}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.25, letterSpacing: '-0.01em' }}>{s.name}</span>
             {isPlaced && <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: 'var(--ink)', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><Check size={10} color="#fff" /></span>}
           </button>
         )

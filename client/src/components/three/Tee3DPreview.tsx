@@ -157,6 +157,13 @@ export function Tee3DPreview({
   const selectionRef = useRef<() => void>(() => {})
   const syncSideRef = useRef<(side: TeeSide) => void>(() => {})
   const resetViewRef = useRef<() => void>(() => {})
+  // True while a corner/rotate handle is being dragged: the box is driven by
+  // the handle itself, so the frame loop must not overwrite it.
+  const transformRef = useRef(false)
+  const ghostControlRef = useRef<{
+    preview: (index: number, p: StickerPlacement) => void
+    clear: (index: number) => void
+  } | null>(null)
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -365,6 +372,28 @@ export function Tee3DPreview({
       decalGroup.remove(ghost)
       ghost.material.dispose()
       ghost = null
+    }
+
+    // Resizing / rotating from the handles uses the same ghost: the decal is
+    // rebuilt once on release instead of on every pointermove.
+    ghostControlRef.current = {
+      preview(index, p) {
+        const entry = entryAtIndex(index)
+        if (!entry) return
+        if (!ghost) startGhost(entry, decalSize(p))
+        const g = ghost
+        if (!g) return
+        const size = decalSize(p)
+        g.scale.set(size, size, 1)
+        g.position.copy(new THREE.Vector3().fromArray(entry.point))
+        g.quaternion.copy(camera.quaternion)
+        g.rotateZ(-THREE.MathUtils.degToRad(p.rotation))
+      },
+      clear(index) {
+        endGhost()
+        const entry = entryAtIndex(index)
+        if (entry) entry.mesh.visible = true
+      },
     }
 
     const keyFor = (p: StickerPlacement, index: number) => p.id ?? `i${index}:${p.ref}`
@@ -690,7 +719,7 @@ export function Tee3DPreview({
     // Overlay update: calculates screen coordinates of the selected decal
     const updateOverlay = () => {
       const el = overlayRef.current
-      if (!el) return
+      if (!el || transformRef.current) return
       const selIdx = selectedRef.current
       if (selIdx === null || !pickables.length) {
         el.style.display = 'none'
@@ -899,6 +928,7 @@ export function Tee3DPreview({
       selectionRef.current = () => {}
       syncSideRef.current = () => {}
       resetViewRef.current = () => {}
+      ghostControlRef.current = null
       bodyMatsRef.current = []
       for (const entry of entries.values()) {
         entry.mesh.geometry.dispose()
@@ -976,18 +1006,29 @@ export function Tee3DPreview({
     const cy = overlayRect.top + overlayRect.height / 2
     const startDist = Math.hypot(e.clientX - cx, e.clientY - cy)
     const startScale = p.scale
+    const startBox = overlayRect.width
 
+    let latest = p.scale
+    transformRef.current = true
     const onPointerMove = (ev: PointerEvent) => {
-      const curDist = Math.hypot(ev.clientX - cx, ev.clientY - cy)
+      const curDist = Math.hypot(e.clientX - cx, ev.clientY - cy)
       if (startDist < 5) return
       const ratio = curDist / startDist
-      const newScale = Math.round(Math.min(80, Math.max(8, startScale * ratio)))
-      onMoveRef.current?.(selIdx, { scale: newScale })
+      latest = Math.round(Math.min(80, Math.max(8, startScale * ratio)))
+      // Preview locally; one state update on release.
+      ghostControlRef.current?.preview(selIdx, { ...p, scale: latest })
+      // The selection box grows with the sticker instead of lagging behind.
+      const box = Math.max(24, Math.round(startBox * ratio))
+      el.style.width = `${box}px`
+      el.style.height = `${box}px`
     }
 
     const onPointerUp = () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      transformRef.current = false
+      ghostControlRef.current?.clear(selIdx)
+      if (latest !== p.scale) onMoveRef.current?.(selIdx, { scale: latest })
     }
 
     window.addEventListener('pointermove', onPointerMove)
@@ -1010,17 +1051,23 @@ export function Tee3DPreview({
     const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx)
     const startRot = p.rotation
 
+    let latest = p.rotation
+    transformRef.current = true
     const onPointerMove = (ev: PointerEvent) => {
       const curAngle = Math.atan2(ev.clientY - cy, ev.clientX - cx)
       let rot = startRot + ((curAngle - startAngle) * 180) / Math.PI
       while (rot > 180) rot -= 360
       while (rot < -180) rot += 360
-      onMoveRef.current?.(selIdx, { rotation: Math.round(rot) })
+      latest = Math.round(rot)
+      ghostControlRef.current?.preview(selIdx, { ...p, rotation: latest })
     }
 
     const onPointerUp = () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      transformRef.current = false
+      ghostControlRef.current?.clear(selIdx)
+      if (latest !== p.rotation) onMoveRef.current?.(selIdx, { rotation: latest })
     }
 
     window.addEventListener('pointermove', onPointerMove)
@@ -1192,19 +1239,21 @@ export function Tee3DPreview({
           bottom: 10,
           transform: 'translateX(-50%)',
           maxWidth: 'calc(100% - 20px)',
-          padding: '5px 12px',
+          padding: '6px 14px',
           borderRadius: 999,
-          background: 'rgba(23,21,18,0.72)',
+          background: 'rgba(23,21,18,0.66)',
+          backdropFilter: 'blur(4px)',
           color: '#fffdf9',
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: 600,
           letterSpacing: '0.02em',
           lineHeight: 1.35,
           textAlign: 'center',
+          whiteSpace: 'nowrap',
           pointerEvents: 'none',
         }}
       >
-        Click sticker to resize & zoom · Drag corners to scale · Mouse wheel to zoom
+        Drag to move · corners to resize
       </span>
       )}
     </div>
