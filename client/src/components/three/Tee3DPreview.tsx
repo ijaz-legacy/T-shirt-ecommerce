@@ -355,6 +355,8 @@ export function Tee3DPreview({
     // along its tangent plane, which is a few arithmetic operations instead of a
     // raycast against the whole merged garment (~90 ms per move on a laptop).
     let dragPlane: THREE.Plane | null = null
+    // How much cloth the sticker's own footprint needs around its anchor.
+    let dragPad = 0
 
     const entryAtIndex = (index: number): DecalEntry | undefined => {
       for (const entry of entries.values()) if (entry.index === index) return entry
@@ -381,6 +383,74 @@ export function Tee3DPreview({
       normalTmp.set(point.x - bounds.centre.x, 0, point.z - bounds.centre.z)
       if (normalTmp.lengthSq() < 1e-4) normalTmp.set(0, 0, 1)
       return normalTmp.normalize().clone()
+    }
+
+    // Where the cloth actually is. Every vertex of the garment is rasterised
+    // once into a coarse grid across the framed bounds, so a drag can be kept
+    // on the tee (body, sleeves, hem) without raycasting the mesh per frame.
+    const MASK = 96
+    let coverage: Uint8Array | null = null
+    let coverageSide: string | null = null
+
+    const buildCoverage = () => {
+      const side = sideRef.current
+      if (coverage && coverageSide === side) return coverage
+      const grid = new Uint8Array(MASK * MASK)
+      const v = new THREE.Vector3()
+      const minX = bounds.centre.x - bounds.size.x / 2
+      const minY = bounds.centre.y - bounds.size.y / 2
+      for (const pickable of pickables) {
+        pickable.updateMatrixWorld()
+        const pos = pickable.geometry.attributes.position
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(pickable.matrixWorld)
+          const cx = Math.floor(((v.x - minX) / bounds.size.x) * MASK)
+          const cy = Math.floor(((v.y - minY) / bounds.size.y) * MASK)
+          if (cx >= 0 && cx < MASK && cy >= 0 && cy < MASK) grid[cy * MASK + cx] = 1
+        }
+      }
+      // Close pinholes left by sparse sampling …
+      const closed = new Uint8Array(grid)
+      for (let y = 1; y < MASK - 1; y++) {
+        for (let x = 1; x < MASK - 1; x++) {
+          if (grid[y * MASK + x]) continue
+          if (grid[(y - 1) * MASK + x] && grid[(y + 1) * MASK + x] && grid[y * MASK + x - 1] && grid[y * MASK + x + 1]) {
+            closed[y * MASK + x] = 1
+          }
+        }
+      }
+      // … then trim the rim so the artwork's centre always has cloth around it.
+      const trimmed = new Uint8Array(MASK * MASK)
+      const R = 2
+      for (let y = R; y < MASK - R; y++) {
+        for (let x = R; x < MASK - R; x++) {
+          if (!closed[y * MASK + x]) continue
+          let solid = true
+          for (let dy = -R; dy <= R && solid; dy++) {
+            for (let dx = -R; dx <= R; dx++) {
+              if (!closed[(y + dy) * MASK + (x + dx)]) { solid = false; break }
+            }
+          }
+          if (solid) trimmed[y * MASK + x] = 1
+        }
+      }
+      coverage = trimmed
+      coverageSide = side
+      return coverage
+    }
+
+    /** `pad` = how many cells around the anchor must also be cloth. */
+    const onGarment = (point: THREE.Vector3, pad = 0) => {
+      const mask = buildCoverage()
+      const cx = Math.floor(((point.x - (bounds.centre.x - bounds.size.x / 2)) / bounds.size.x) * MASK)
+      const cy = Math.floor(((point.y - (bounds.centre.y - bounds.size.y / 2)) / bounds.size.y) * MASK)
+      if (cx - pad < 0 || cx + pad >= MASK || cy - pad < 0 || cy + pad >= MASK) return false
+      for (let dy = -pad; dy <= pad; dy++) {
+        for (let dx = -pad; dx <= pad; dx++) {
+          if (mask[(cy + dy) * MASK + (cx + dx)] !== 1) return false
+        }
+      }
+      return true
     }
 
     const placeGhost = (point: THREE.Vector3, normal: THREE.Vector3, rotationDeg: number) => {
@@ -723,6 +793,10 @@ export function Tee3DPreview({
         startY: event.clientY,
         moved: false,
       }
+      const sized = placementsRef.current[hitIndex]
+      dragPad = sized
+        ? Math.max(1, Math.round(((decalSize(sized) * 0.45) / bounds.size.x) * MASK))
+        : 0
       onSelectRef.current?.(hitIndex)
     }
 
@@ -744,12 +818,10 @@ export function Tee3DPreview({
       if (!raycaster.ray.intersectPlane(dragPlane, point)) return
       // Raycasting the merged garment on every move costs ~70 ms here, so the
       // surface tilt is derived from the torso it is wrapped around instead.
-      // Never let the artwork slide off the garment: keep the anchor inside the
-      // tee's own extent while dragging.
-      const halfW = bounds.size.x / 2 - 0.8
-      const halfH = bounds.size.y / 2 - 0.8
-      point.x = THREE.MathUtils.clamp(point.x, bounds.centre.x - halfW, bounds.centre.x + halfW)
-      point.y = THREE.MathUtils.clamp(point.y, bounds.centre.y - halfH, bounds.centre.y + halfH)
+      // Never let the artwork slide off the tee — over the collar, past the
+      // sleeve seam or below the hem: an off-cloth anchor would float in mid
+      // air. If the pointer leaves the cloth the sticker just stops at the edge.
+      if (!onGarment(point, dragPad) && dragPoint && onGarment(dragPoint.point, dragPad)) return
       const normal = surfaceNormalAt(point)
 
       // Word/PowerPoint-style centre snapping: within ~2% of the middle the
@@ -785,13 +857,19 @@ export function Tee3DPreview({
         ? { point: hit.point.clone(), normal: worldNormalOf(hit) }
         : dragPoint
       const released = entryAtIndex(index)
-      endGhost()
-      if (released) released.mesh.visible = true
+      // The re-projection of the decal is asynchronous, so the drag preview is
+      // kept in place until the real one exists: the artwork follows the drop
+      // instead of blinking away for a frame.
+      window.setTimeout(() => {
+        endGhost()
+        if (released) released.mesh.visible = true
+      }, 90)
       if (guideXRef.current) guideXRef.current.style.opacity = '0'
       if (guideYRef.current) guideYRef.current.style.opacity = '0'
       drag = null
       dragPoint = null
       dragPlane = null
+      dragPad = 0
       controls.enabled = true
       if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
 
