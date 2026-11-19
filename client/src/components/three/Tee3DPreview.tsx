@@ -364,32 +364,66 @@ export function Tee3DPreview({
     // While a sticker moves, its projected decal geometry would poke through the
     // garment (the decal is cut to the fabric it was projected onto). So the
     // real decal is hidden during the drag and a flat ghost carrying the same
-    // artwork follows the pointer; the projection is rebuilt on release.
-    let ghost: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null
+    // artwork rides the fabric under the pointer — laid flat along the surface
+    // normal, never turned to face the camera, so it reads as the sticker
+    // sliding on the shirt rather than being pulled out of it.
+    let ghost: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
     const ghostGeometry = new THREE.PlaneGeometry(1, 1)
+    const ghostUp = new THREE.Vector3(0, 1, 0)
+    const ghostMatrix = new THREE.Matrix4()
+    const ghostTarget = new THREE.Vector3()
 
-    const startGhost = (entry: DecalEntry, size: number) => {
+    // The tee is a torso: its outward normal at a point is the horizontal
+    // direction away from the body's vertical axis. Cheap, and good enough to
+    // make the artwork lie on the cloth while it is dragged.
+    const normalTmp = new THREE.Vector3()
+    const surfaceNormalAt = (point: THREE.Vector3) => {
+      normalTmp.set(point.x - bounds.centre.x, 0, point.z - bounds.centre.z)
+      if (normalTmp.lengthSq() < 1e-4) normalTmp.set(0, 0, 1)
+      return normalTmp.normalize().clone()
+    }
+
+    const placeGhost = (point: THREE.Vector3, normal: THREE.Vector3, rotationDeg: number) => {
+      if (!ghost) return
+      const up = Math.abs(normal.y) > 0.95 ? ghostUp.set(0, 0, 1) : ghostUp.set(0, 1, 0)
+      ghostTarget.copy(normal).negate()
+      ghostMatrix.lookAt(new THREE.Vector3(0, 0, 0), ghostTarget, up)
+      ghost.quaternion.setFromRotationMatrix(ghostMatrix)
+      ghost.rotateZ(-THREE.MathUtils.degToRad(rotationDeg))
+      // A hair above the cloth so it never z-fights, still visually on it.
+      ghost.position.copy(point).addScaledVector(normal, 0.02)
+    }
+
+    const startGhost = (
+      entry: DecalEntry,
+      size: number,
+      rotationDeg: number,
+    ) => {
       endGhost()
-      const material = new THREE.MeshBasicMaterial({
+      // Same material family as the real decal, so the artwork keeps the
+      // fabric's lighting while it slides instead of looking pasted on.
+      const material = new THREE.MeshStandardMaterial({
         map: entry.texture,
         transparent: true,
         depthTest: false,
         depthWrite: false,
+        roughness: 0.88,
+        metalness: 0,
         side: THREE.DoubleSide,
-        opacity: 0.92,
+        alphaTest: 0.02,
       })
       ghost = new THREE.Mesh(ghostGeometry, material)
       ghost.renderOrder = 20
       ghost.scale.set(size, size, 1)
       decalGroup.add(ghost)
+      // Position it on the sticker's own spot straight away, so the very first
+      // frame of the drag already shows the artwork in place.
+      placeGhost(
+        new THREE.Vector3().fromArray(entry.point),
+        new THREE.Vector3().fromArray(entry.normal),
+        rotationDeg,
+      )
       entry.mesh.visible = false
-    }
-
-    const moveGhost = (point: THREE.Vector3, rotationDeg: number) => {
-      if (!ghost) return
-      ghost.position.copy(point)
-      ghost.quaternion.copy(camera.quaternion)
-      ghost.rotateZ(-THREE.MathUtils.degToRad(rotationDeg))
     }
 
     function endGhost() {
@@ -428,14 +462,16 @@ export function Tee3DPreview({
       preview(index, p) {
         const entry = entryAtIndex(index)
         if (!entry) return
-        if (!ghost) startGhost(entry, decalSize(p))
+        if (!ghost) startGhost(entry, decalSize(p), p.rotation)
         const g = ghost
         if (!g) return
         const size = decalSize(p)
         g.scale.set(size, size, 1)
-        g.position.copy(new THREE.Vector3().fromArray(entry.point))
-        g.quaternion.copy(camera.quaternion)
-        g.rotateZ(-THREE.MathUtils.degToRad(p.rotation))
+        placeGhost(
+          new THREE.Vector3().fromArray(entry.point),
+          new THREE.Vector3().fromArray(entry.normal),
+          p.rotation,
+        )
       },
       clear(index) {
         endGhost()
@@ -698,7 +734,7 @@ export function Tee3DPreview({
         drag.moved = true
         const entry = entryAtIndex(drag.index)
         const placement = placementsRef.current[drag.index]
-        if (entry && placement) startGhost(entry, decalSize(placement))
+        if (entry && placement) startGhost(entry, decalSize(placement), placement.rotation)
       }
       const now = performance.now()
       if (now - lastMove < 16) return
@@ -706,6 +742,15 @@ export function Tee3DPreview({
       if (!pointerRay(event) || !dragPlane) return
       const point = new THREE.Vector3()
       if (!raycaster.ray.intersectPlane(dragPlane, point)) return
+      // Raycasting the merged garment on every move costs ~70 ms here, so the
+      // surface tilt is derived from the torso it is wrapped around instead.
+      // Never let the artwork slide off the garment: keep the anchor inside the
+      // tee's own extent while dragging.
+      const halfW = bounds.size.x / 2 - 0.8
+      const halfH = bounds.size.y / 2 - 0.8
+      point.x = THREE.MathUtils.clamp(point.x, bounds.centre.x - halfW, bounds.centre.x + halfW)
+      point.y = THREE.MathUtils.clamp(point.y, bounds.centre.y - halfH, bounds.centre.y + halfH)
+      const normal = surfaceNormalAt(point)
 
       // Word/PowerPoint-style centre snapping: within ~2% of the middle the
       // sticker clicks onto the centre line and a guide appears.
@@ -718,13 +763,13 @@ export function Tee3DPreview({
 
       // Keep the anchor on the plane for the next move (no drifting).
       dragPlane.setFromNormalAndCoplanarPoint(dragPlane.normal, point)
-      dragPoint = { point, normal: dragPlane.normal.clone() }
+      dragPoint = { point, normal }
 
       const entry = entryAtIndex(drag.index)
       if (entry) {
         entry.mesh.position.add(point.clone().sub(new THREE.Vector3().fromArray(entry.point)))
         entry.point = point.toArray()
-        moveGhost(point, placementsRef.current[drag.index]?.rotation ?? 0)
+        placeGhost(point, normal, placementsRef.current[drag.index]?.rotation ?? 0)
       }
       updateOverlay()
     }
